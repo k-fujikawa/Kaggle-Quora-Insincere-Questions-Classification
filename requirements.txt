@@ -1,0 +1,23 @@
+# General packages
+pyyaml
+kaggle
+prompter
+
+# ML packages
+pandas
+scikit-learn
+tensorboardX
+optuna
+
+# Jupyter packages
+jupyterlab
+seaborn
+tqdm
+ipywidgets
+
+# NLP modules
+nltk
+torchtext
+gensim
+spacy
+sentencepiece

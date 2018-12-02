@@ -1,0 +1,15 @@
+*~
+*.pyc
+\#*
+*.egg-info
+*.eggs
+.coverage
+dist
+build
+coverage.xml
+input
+data
+results
+gs_results
+**/.ipynb_checkpoints/
+**/.DS_Store

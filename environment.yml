@@ -1,0 +1,13 @@
+name: default
+channels:
+  - pytorch
+dependencies:
+  - python=3.6.6
+  - numpy
+  - scipy
+  - cython
+  - flake8
+  - pytest
+  - nodejs
+  - pytorch
+  - dask

@@ -1,0 +1,38 @@
+version: "2.3"
+services:
+  base: &base
+    user: $UID:$GID
+    image: qiqc
+    network_mode: "bridge"
+    init: true
+    volumes:
+      - $PWD:/src
+    environment:
+      - HOME=/tmp
+  cpu:
+    <<: *base
+    build:
+      context: .
+  gpu:
+    <<: *base
+    runtime: nvidia
+  jupyter:
+    <<: *base
+    ports:
+      - "${PORT:-8888}:${PORT:-8888}"
+    command:
+      bash -c "
+      jupyter lab --ip 0.0.0.0 --allow-root --port ${PORT:-8888}
+      "
+  tensorboard:
+    image: tensorflow/tensorflow:1.10.1-py3
+    network_mode: "bridge"
+    ports:
+      - "${TFPORT:-9999}:${TFPORT:-9999}"
+    volumes:
+      - ${LOGDIR:-./experiments}:/tflog
+    command:
+      bash -c "
+      tensorboard --port ${TFPORT:-9999} --logdir /tflog
+      "
+
