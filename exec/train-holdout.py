@@ -7,7 +7,8 @@ import pandas as pd
 import optuna
 import torch
 from sklearn.model_selection import ParameterGrid
-from torch.utils.data import DataLoader
+from sklearn.model_selection import ShuffleSplit
+from torch.utils.data import Subset
 
 import qiqc
 from qiqc.datasets import QIQCTrainDataset, QIQCSubmitDataset
@@ -19,7 +20,7 @@ def main(args=None):
     parser.add_argument('--device', '-g', type=int)
     parser.add_argument('--test', action='store_true')
     parser.add_argument('--epochs', '-e', type=int, default=5)
-    parser.add_argument('--outdir', '-o', type=str, default='results')
+    parser.add_argument('--outdir', '-o', type=str, default='test')
     parser.add_argument('--batchsize', '-b', type=int, default=512)
     parser.add_argument('--optuna-trials', type=int)
     parser.add_argument('--gridsearch', action='store_true')
@@ -27,11 +28,11 @@ def main(args=None):
     args = parser.parse_args(args)
     config = qiqc.config.build_config(args)
     qiqc.set_seed(config['model_seed'])
+    outdir = Path('results') / '/'.join(Path(args.modeldir).parts[1:])
+    config['outdir'] = outdir / config['outdir']
     if args.test:
-        config['outdir'] = str(Path(args.modeldir) / 'test')
         config['n_rows'] = 1000
     else:
-        config['outdir'] = Path(args.modeldir) / config['outdir']
         config['n_rows'] = None
     qiqc.utils.rmtree_after_confirmation(config['outdir'], args.test)
 
@@ -121,24 +122,20 @@ def train(config, trial=None):
     train_rawdata.df['token_ids'] = train_rawdata.df.tokens.apply(featurizer)
     submit_rawdata.df['token_ids'] = submit_rawdata.df.tokens.apply(featurizer)
 
-    train_rawdata, test_rawdata = train_rawdata.train_test_split(
+    train_rawdata, test_dataset = train_rawdata.train_test_split(
         test_size=0.1, random_state=0)
-    train_iters, valid_iters = qiqc.dataset.split_holdout(
-        train_rawdata, config['batchsize'], config['batchsize_valid'],
-        random_state=config['dataset_seed'], n_splits=1,
-        balancing=config['balancing'])
-    test_iter = DataLoader(
-        test_rawdata, batch_size=config['batchsize_valid'],
-        shuffle=False)
-
+    splitter = ShuffleSplit(
+        n_splits=1, test_size=0.1, random_state=config['dataset_seed'])
     results = []
-    for train_iter, valid_iter in zip(train_iters, valid_iters):
+    for train_indices, valid_indices in splitter.split(train_rawdata):
+        train_dataset = Subset(train_rawdata, train_indices)
+        valid_dataset = Subset(train_rawdata, valid_indices)
         model = modelconf.build_model(config).to_device(config['device'])
         optimizer = modelconf.build_optimizer(config, model)
         trainer = qiqc.trainer.Trainer(
             model, optimizer, featurizer, config['device'], config['outdir'])
         result = trainer.train(
-            config, train_iter, valid_iter, test_iter, trial=trial)
+            config, train_dataset, valid_dataset, test_dataset, trial=trial)
         results.append(result)
         print(result['bestscore'])
     del config['model']['embedding_matrix']

@@ -9,6 +9,7 @@ import torch
 from sklearn import metrics
 from tqdm import tqdm
 from tensorboardX import SummaryWriter
+from torch.utils.data import DataLoader, WeightedRandomSampler
 
 
 # TODO: refactor
@@ -85,7 +86,7 @@ class Trainer(object):
             outputs.append(output)
         return pd.DataFrame(outputs)
 
-    def train(self, config, train_iter, valid_iter=None, test_iter=None,
+    def train(self, config, train_dataset, valid_dataset, test_dataset,
               evaluate_every=np.nan, trial=None):
         bestscore = 0
         bestepoch = 0
@@ -93,9 +94,27 @@ class Trainer(object):
         bestmodel = None
         scores = defaultdict(list)
         start = time.time()
+        valid_iter = DataLoader(
+            valid_dataset, batch_size=config['batchsize_valid'])
+        test_iter = DataLoader(
+            test_dataset, batch_size=config['batchsize_valid'])
+        train_weights = train_dataset.dataset.df.weights[train_dataset.indices]
         for epoch in tqdm(range(1, config['epochs'] + 1)):
             self.epoch = epoch
             outputs = []
+            if config['balancing'] and epoch % 2 == 0:
+                sampler = WeightedRandomSampler(
+                    weights=train_weights,
+                    num_samples=len(train_dataset.indices),
+                    replacement=True,
+                )
+                shuffle = False
+            else:
+                sampler = None
+                shuffle = True
+            train_iter = DataLoader(
+                train_dataset, sampler=sampler, drop_last=True,
+                batch_size=config['batchsize'], shuffle=shuffle)
             for i, batch in enumerate(tqdm(train_iter, desc='train')):
                 # Train batch
                 self.model.train()
