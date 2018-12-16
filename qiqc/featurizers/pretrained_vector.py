@@ -1,4 +1,5 @@
 import csv
+import numpy as np
 import pandas as pd
 from gensim.models import KeyedVectors
 
@@ -41,7 +42,7 @@ class WNewsPretrainedVector(object):
     @classmethod
     def load(cls, limit=None):
         return KeyedVectors.load_word2vec_format(
-            cls.path, binary=True, limit=limit)
+            cls.path, binary=False, limit=limit)
 
 
 class ParagramPretrainedVector(object):
@@ -51,11 +52,15 @@ class ParagramPretrainedVector(object):
 
     @classmethod
     def load(cls, limit=None):
-        df = pd.read_table(
-            cls.path, sep=" ", index_col=0, header=None,
-            quoting=csv.QUOTE_NONE, nrows=limit)
+        def get_coefs(word, *arr):
+            return word, np.asarray(arr, dtype='float32')
+
+        embeddings_index = dict(
+            get_coefs(*o.split(" ")) for o in
+            open(cls.path, encoding="utf8", errors='ignore')
+            if len(o)>100)
         vec = KeyedVectors(300)
-        vec.add(df.index, df.values)
+        vec.add(list(embeddings_index.keys()), list(embeddings_index.values()))
 
         return vec
 
