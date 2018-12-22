@@ -20,9 +20,9 @@ class WordEmbedding(nn.Module):
         if pretrained_vectors is not None:
             self.word_embed.weight = nn.Parameter(
                 torch.Tensor(pretrained_vectors))
-            self.word_embed.weight.requires_grad = not freeze_embed 
+            self.word_embed.weight.requires_grad = not freeze_embed
             self.word_embed = EmbeddingTable(pretrained_vectors)
-        if n_hidden > 0 :
+        if n_hidden > 0:
             self.out_dim = n_hidden
             self.linear = nn.Linear(n_embed, n_hidden)
             if hidden_bn:
@@ -62,7 +62,7 @@ class PositionalEmbedding(nn.Module):
         pe.require_grad = False
 
         position = torch.arange(0, max_len).float().unsqueeze(1)
-        div_term = (torch.arange(0, d_model, 2).float() * \
+        div_term = (torch.arange(0, d_model, 2).float() *
                     -(math.log(10000.0) / d_model)).exp()
 
         pe[:, 0::2] = torch.sin(position * div_term)

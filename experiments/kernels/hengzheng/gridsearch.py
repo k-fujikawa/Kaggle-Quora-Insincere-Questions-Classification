@@ -1,10 +1,13 @@
 def build_gridsearch_params():
     params = {}
-    # params['featurizer.pretrain'] = ['gnews']
+    params['tokenizer'] = ['space', 'word_tokenize']
+    params['preprocessors'] = [
+        ['lower', 'punct', 'number', 'hengzheng_mispell', 'keras'],
+        ['lower', 'punct', 'number', 'hengzheng_mispell'],
+    ]
+    params['embedding.standardize'] = [True, False]
     # params['featurizer.n_finetune'] = [1, 2]
     # params['model.embed.alpha'] = [1e-5, 1e-4]
-    params['model.encoder.n_layers'] = [2, 3]
-    params['model.encoder.n_hidden'] = [64]
     # params['model.mlp.bn'] = [True, False]
     # params['model.embed.position'] = [True, False]
     # params['model.embed.dropout'] = [0.1, 0.2, 0.3]

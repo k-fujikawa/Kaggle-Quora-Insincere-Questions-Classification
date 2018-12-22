@@ -1,6 +1,7 @@
 from qiqc.preprocessors.pipeline import PreprocessPipeline  # NOQA
-from qiqc.preprocessors.normalizer import SentenceNormalizationPipeline  # NOQA
-from qiqc.preprocessors.normalizer import RulebasedNormalizer  # NOQA
-from qiqc.preprocessors.normalizer import ContractionNormalizer  # NOQA
-from qiqc.preprocessors.normalizer import PunktNormalizer  # NOQA
-from qiqc.preprocessors.normalizer import TypoNormalizer  # NOQA
+from qiqc.preprocessors.normalizer import StringReplacer  # NOQA
+from qiqc.preprocessors.normalizer import RegExpReplacer  # NOQA
+from qiqc.preprocessors.normalizer import PunctSpacer  # NOQA
+from qiqc.preprocessors.normalizer import NumberReplacer  # NOQA
+from qiqc.preprocessors.normalizer import HengZhengMispellReplacer  # NOQA
+from qiqc.preprocessors.normalizer import KerasFilterReplacer  # NOQA
