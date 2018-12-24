@@ -4,6 +4,9 @@ seed: 0
 epochs: 5
 maxlen: 72
 
+vocab:
+  max_size: 95000
+  min_count:
 preprocessors:
   - lower
   - punct
@@ -12,12 +15,15 @@ preprocessors:
   - keras
 tokenizer: space
 embedding:
+  finetune:
+    False
   src:
     - glove
     - paragram
   model:
     word2vec
   params:
+    alpha: 1e-4
     size: 300
   standardize:
     False

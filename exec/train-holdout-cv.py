@@ -86,6 +86,13 @@ def train(config):
     [word_freq.update(c) for c in counters]
     token2id = dict([('<PAD>', 0), ('<UNK>', 1)] + [
         (w, i + 2) for i, (w, n) in enumerate(word_freq.most_common())])
+    if config['vocab']['min_count'] is not None:
+        word_freq = Counter(dict(filter(
+            lambda x: x[1] > config['vocab']['min_count'],
+            word_freq.most_common())))
+    if config['vocab']['max_size'] is not None:
+        word_freq = Counter(dict(
+            word_freq.most_common(config['vocab']['max_size'])))
     train_df['token_ids'] = train_df.tokens.apply(
         lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
     submit_df['token_ids'] = submit_df.tokens.apply(
@@ -140,7 +147,7 @@ def train(config):
             valid_dataset, batch_size=config['batchsize_valid'])
 
         embedding = build_embedding(
-            i_cv, config, word_freq, token2id, pretrained_vectors)
+            i_cv, config, tokens, word_freq, token2id, pretrained_vectors)
         model = build_model(i_cv, config, embedding)
         model = model.to_device(config['device'])
         optimizer = build_optimizer(i_cv, config, model)
