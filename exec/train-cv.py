@@ -51,10 +51,16 @@ def main(args=None):
 
 
 def train(config):
+    modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
+    build_embedding = modelconf.build_embedding
+    build_model = modelconf.build_model
+    build_sampler = modelconf.build_sampler
+    build_optimizer = modelconf.build_optimizer
+    build_ensembler = modelconf.build_ensembler
+
     print(config)
     set_seed(config['seed'])
     train_df, submit_df = load_qiqc(n_rows=config['n_rows'])
-    modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
     preprocessor = build_preprocessor(config['preprocessors'])
     tokenizer = build_tokenizer(config['tokenizer'])
 
@@ -67,7 +73,7 @@ def train(config):
         [train_df.tokens.values, submit_df.tokens.values])
 
     print('Build embedding...')
-    token2id, embedding = modelconf.build_embedding(config, tokens)
+    token2id, embedding = build_embedding(config, tokens)
     train_df['token_ids'] = train_df.tokens.apply(
         lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
     submit_df['token_ids'] = submit_df.tokens.apply(
@@ -76,7 +82,10 @@ def train(config):
     train_X = torch.Tensor(train_df.token_ids).type(torch.long)
     train_W = torch.Tensor(train_df.weights).type(torch.float)
     train_t = torch.Tensor(train_df.target[:, None]).type(torch.float)
-    submit_X = torch.Tensor(submit_df.token_ids).type(torch.long)  # NOQA
+
+    # Prepare submit dataset
+    submit_X = torch.Tensor(submit_df.token_ids).type(torch.long)
+    submit_X = submit_X.to(config['device'])
 
     print('Start training...')
     splitter = sklearn.model_selection.StratifiedKFold(
@@ -101,16 +110,16 @@ def train(config):
             _valid_X, _valid_t, _valid_W)
         valid_iter = DataLoader(
             valid_dataset, batch_size=config['batchsize_valid'])
-        model = modelconf.build_model(config, embedding)
+        model = build_model(config, embedding)
         model = model.to_device(config['device'])
-        optimizer = modelconf.build_optimizer(config, model)
+        optimizer = build_optimizer(config, model)
         train_result = ClassificationResult('train', config['outdir'])
         valid_result = ClassificationResult('valid', config['outdir'])
 
         start = time.time()
         for epoch in range(config['epochs']):
             epoch_start = time.time()
-            sampler = modelconf.build_sampler(
+            sampler = build_sampler(
                 epoch, train_df.weights[train_indices].values)
             train_iter = DataLoader(
                 train_dataset, sampler=sampler, drop_last=True,
@@ -137,7 +146,8 @@ def train(config):
                 valid_result.summary.iloc[-1],
             ]).set_index('name')
             epoch_time = time.time() - epoch_start
-            tqdm.write(f'\n###  cv: {i_cv} / {config["cv"]}, epoch {epoch}, '
+            pbar = '#' * (i_cv + 1) + '-' * (config['cv'] - 1)
+            tqdm.write(f'\n{pbar} cv: {i_cv} / {config["cv"]}, epoch {epoch}, '
                        f'time: {epoch_time}')
             tqdm.write(str(summary))
 
@@ -150,14 +160,32 @@ def train(config):
         train_results.append(train_result)
         valid_results.append(valid_result)
 
+    # Build ensembler
+    ensembler = build_ensembler(
+        models=list(best_models.values()),
+        results=valid_results,
+        device=config['device'],
+        batchsize_train=config['batchsize'],
+        batchsize_valid=config['batchsize'],
+    )
+    ensemble_score = ensembler.fit(train_X, train_t.numpy())
+
     scores = dict(
         valid_fbeta=np.array([r.best_fbeta for r in valid_results]).mean(),
         valid_epoch=np.array([r.best_epoch for r in valid_results]).mean(),
         valid_threshold=np.array([
             r.best_threshold for r in valid_results]).mean(),
+        ensemble_fbeta=ensemble_score['fbeta'],
+        ensemble_threshold=ensemble_score['threshold'],
         elapsed_time=np.array([r.elapsed_time for r in valid_results]).mean(),
     )
     print(scores)
+
+    # Predict submit datasets
+    submit_y = ensembler.predict(submit_X)
+    submit_df['prediction'] = submit_y
+    submit_df = submit_df[['qid', 'prediction']]
+
     return scores
 
 

@@ -8,6 +8,7 @@ from qiqc.embeddings import load_pretrained_vectors
 from qiqc.models import Word2VecEx
 from qiqc.models import WordEmbedding
 from qiqc.models import BinaryClassifier
+from qiqc.models import AverageEnsembler
 
 
 def build_sampler(epoch, weights):
@@ -85,3 +86,7 @@ def build_optimizer(config, model):
     # optimizer = torch.optim.SGD(
     #     model.parameters(), lr=float(config['optimizer']['lr']))
     return optimizer
+
+
+def build_ensembler(*args, **kwargs):
+    return AverageEnsembler(*args, **kwargs)

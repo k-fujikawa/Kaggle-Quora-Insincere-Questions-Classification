@@ -9,4 +9,5 @@ from qiqc.models.embed.word2vec import Word2VecEx  # NOQA
 from qiqc.models.embed.word import WordEmbedding  # NOQA
 from qiqc.models.encoder.attention import MultiHeadedAttention  # NOQA
 from qiqc.models.encoder.transformer import TransformerEncoder  # NOQA
+from qiqc.models.ensembler.simple import AverageEnsembler  # NOQA
 from qiqc.models.fc.mlp import MLP  # NOQA
