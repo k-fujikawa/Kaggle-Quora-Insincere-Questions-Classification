@@ -1,37 +1,26 @@
-import gensim
 import torch
 import numpy as np
 from torch import nn
 
-from qiqc.embeddings import load_pretrained_vectors
 from qiqc.models import Word2VecEx
-from qiqc.models import AverageEnsembler
 
 
-def build_sampler(epoch, weights):
+def build_sampler(i, epoch, weights):
     return None
 
 
-def build_embedding(config, tokens):
-    vocab = gensim.models.word2vec.Word2VecVocab()
-    vocab.scan_vocab(tokens)
-    token2id = dict([(k, i + 2) for i, (k, v) in enumerate(sorted(
-        vocab.raw_vocab.items(), key=lambda x:x[1], reverse=True))])
-    token2id = dict(**{'<PAD>': 0, '<UNK>': 1}, **token2id)
-    pretrained_vectors = load_pretrained_vectors(
-        config['embedding']['src'], token2id, test=config['test'])
-
+def build_embedding(i, config, word_freq, token2id, pretrained_vectors):
     embedding_matrices = []
     for name, vec in pretrained_vectors.items():
         model = Word2VecEx(**config['embedding']['params'])
-        model.build_vocab_from_freq(vocab.raw_vocab)
+        model.build_vocab_from_freq(word_freq)
         model.initialize_pretrained_vector(vec)
         embedding_matrices.append(
             model.build_embedding_matrix(
                 token2id, standardize=config['embedding']['standardize']))
     embedding_matrix = np.array(embedding_matrices).mean(axis=0)
 
-    return token2id, embedding_matrix
+    return embedding_matrix
 
 
 class Attention(nn.Module):
@@ -147,16 +136,12 @@ class NeuralNet(nn.Module):
         return self
 
 
-def build_model(config, embedding_matrix):
+def build_model(i, config, embedding_matrix):
     clf = NeuralNet(embedding_matrix)
     return clf
 
 
-def build_optimizer(config, model):
+def build_optimizer(i, config, model):
     optimizer = torch.optim.Adam(
         model.parameters(), lr=float(config['optimizer']['lr']))
     return optimizer
-
-
-def build_ensembler(*args, **kwargs):
-    return AverageEnsembler(*args, **kwargs)

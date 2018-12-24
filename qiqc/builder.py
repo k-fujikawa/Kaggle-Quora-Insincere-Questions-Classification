@@ -4,6 +4,7 @@ from qiqc.models.aggregator.pooling import AvgPoolingAggregator
 from qiqc.models.aggregator.pooling import MaxPoolingAggregator
 from qiqc.models.aggregator.pooling import SumPoolingAggregator
 from qiqc.models.aggregator.state import BiRNNLastStateAggregator
+from qiqc.models.ensembler.simple import AverageEnsembler
 
 from qiqc.preprocessors.pipeline import PreprocessPipeline
 from qiqc.preprocessors.normalizer import PunctSpacer
@@ -29,6 +30,9 @@ tokenizers = {
     'space': str.split,
     'word_tokenize': nltk.word_tokenize,
 }
+ensemblers = {
+    'avg': AverageEnsembler
+}
 
 
 def build_aggregator(name):
@@ -44,3 +48,7 @@ def build_preprocessor(names):
 
 def build_tokenizer(name):
     return tokenizers[name]
+
+
+def build_ensembler(name):
+    return ensemblers[name]

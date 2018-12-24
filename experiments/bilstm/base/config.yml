@@ -42,3 +42,4 @@ model:
     bn: True
     n_layers: 2
     n_hidden: 128
+ensembler: avg

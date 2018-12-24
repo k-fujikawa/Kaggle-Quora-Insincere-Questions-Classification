@@ -1,6 +1,8 @@
 import argparse
 import time
+from collections import Counter
 from copy import deepcopy
+from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
@@ -11,8 +13,11 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 import qiqc
-from qiqc.builder import build_preprocessor, build_tokenizer
+from qiqc.builder import build_preprocessor
+from qiqc.builder import build_tokenizer
+from qiqc.builder import build_ensembler
 from qiqc.datasets import load_qiqc
+from qiqc.embeddings import load_pretrained_vectors
 from qiqc.model_selection import ClassificationResult
 from qiqc.utils import pad_sequence, set_seed
 
@@ -29,6 +34,7 @@ def main(args=None):
     parser.add_argument('--gridsearch', action='store_true')
     parser.add_argument('--cv', type=int, default=5)
     parser.add_argument('--cv-part', type=int)
+    parser.add_argument('--processes', type=int, default=2)
 
     args = parser.parse_args(args)
     config = qiqc.config.build_config(args)
@@ -56,7 +62,6 @@ def train(config):
     build_model = modelconf.build_model
     build_sampler = modelconf.build_sampler
     build_optimizer = modelconf.build_optimizer
-    build_ensembler = modelconf.build_ensembler
 
     print(config)
     set_seed(config['seed'])
@@ -69,15 +74,25 @@ def train(config):
         lambda x: tokenizer(preprocessor(x)))
     submit_df['tokens'] = submit_df.question_text.apply(
         lambda x: tokenizer(preprocessor(x)))
-    tokens = np.concatenate(
-        [train_df.tokens.values, submit_df.tokens.values])
+    tokens = train_df.tokens.append(submit_df.tokens).values
+    tokens_flatten = [token for _ in tokens for token in _]
 
-    print('Build embedding...')
-    token2id, embedding = build_embedding(config, tokens)
+    print('Build vocabulary...')
+    with Pool(processes=config['processes']) as pool:
+        _tokens = np.array_split(tokens_flatten, config['processes'])
+        counters = pool.map(Counter, _tokens)
+    word_freq = Counter()
+    [word_freq.update(c) for c in counters]
+    token2id = dict([('<PAD>', 0), ('<UNK>', 1)] + [
+        (w, i + 2) for i, (w, n) in enumerate(word_freq.most_common())])
     train_df['token_ids'] = train_df.tokens.apply(
         lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
     submit_df['token_ids'] = submit_df.tokens.apply(
         lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
+
+    print('Load pretrained vectors...')
+    pretrained_vectors = load_pretrained_vectors(
+        config['embedding']['src'], token2id, test=config['test'])
 
     train_X = torch.Tensor(train_df.token_ids).type(torch.long)
     train_W = torch.Tensor(train_df.weights).type(torch.float)
@@ -92,6 +107,7 @@ def train(config):
         n_splits=config['cv'], shuffle=True, random_state=config['seed'])
     train_results, valid_results = [], []
     best_models = {}
+    start = time.time()
     for i_cv, (train_indices, valid_indices) in enumerate(
             splitter.split(train_X, train_t)):
         if config['cv_part'] is not None and i_cv >= config['cv_part']:
@@ -110,17 +126,19 @@ def train(config):
             _valid_X, _valid_t, _valid_W)
         valid_iter = DataLoader(
             valid_dataset, batch_size=config['batchsize_valid'])
-        model = build_model(config, embedding)
+
+        embedding = build_embedding(
+            i_cv, config, word_freq, token2id, pretrained_vectors)
+        model = build_model(i_cv, config, embedding)
         model = model.to_device(config['device'])
-        optimizer = build_optimizer(config, model)
+        optimizer = build_optimizer(i_cv, config, model)
         train_result = ClassificationResult('train', config['outdir'])
         valid_result = ClassificationResult('valid', config['outdir'])
 
-        start = time.time()
         for epoch in range(config['epochs']):
             epoch_start = time.time()
             sampler = build_sampler(
-                epoch, train_df.weights[train_indices].values)
+                i_cv, epoch, train_df.weights[train_indices].values)
             train_iter = DataLoader(
                 train_dataset, sampler=sampler, drop_last=True,
                 batch_size=config['batchsize'], shuffle=sampler is None)
@@ -153,20 +171,18 @@ def train(config):
 
             # Case: updating the best score
             if epoch == valid_result.best_epoch:
-                valid_result.epoch_time = epoch_time
                 best_models[i_cv] = deepcopy(model)
 
-        valid_result.elapsed_time = time.time() - start
         train_results.append(train_result)
         valid_results.append(valid_result)
 
     # Build ensembler
-    ensembler = build_ensembler(
+    ensembler = build_ensembler(config['ensembler'])(
         models=list(best_models.values()),
         results=valid_results,
         device=config['device'],
         batchsize_train=config['batchsize'],
-        batchsize_valid=config['batchsize'],
+        batchsize_valid=config['batchsize_valid'],
     )
     ensemble_score = ensembler.fit(train_X, train_t.numpy())
 
@@ -177,7 +193,7 @@ def train(config):
             r.best_threshold for r in valid_results]).mean(),
         ensemble_fbeta=ensemble_score['fbeta'],
         ensemble_threshold=ensemble_score['threshold'],
-        elapsed_time=np.array([r.elapsed_time for r in valid_results]).mean(),
+        elapsed_time=time.time() - start,
     )
     print(scores)
 
