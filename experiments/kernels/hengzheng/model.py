@@ -11,17 +11,11 @@ def build_sampler(i, epoch, weights):
 
 def build_embedding(
         i, config, tokens, word_freq, token2id, pretrained_vectors):
-    vecs = []
-    for name, vec in pretrained_vectors.items():
-        model = Word2VecEx(**config['embedding']['params'])
-        model.build_vocab_from_freq(word_freq)
-        model.initialize_pretrained_vector(vec)
-        vecs.append(model.wv)
-
+    assert isinstance(pretrained_vectors, np.ndarray)
     # Fine tuning embedding
     model = Word2VecEx(**config['embedding']['params'])
     model.build_vocab_from_freq(word_freq)
-    model.wv.vectors = np.array([v.wv.vectors for v in vecs]).mean(axis=0)
+    model.wv.vectors[:] = pretrained_vectors
     if config['embedding']['finetune']:
         model.train(tokens, total_examples=len(tokens), epochs=1)
     mat = model.build_embedding_matrix(

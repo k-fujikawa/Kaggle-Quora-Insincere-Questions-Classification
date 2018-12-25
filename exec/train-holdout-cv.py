@@ -1,14 +1,13 @@
 import argparse
 import time
-from collections import Counter
 from copy import deepcopy
-from multiprocessing import Pool
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import sklearn
 import torch
+from gensim.corpora import Dictionary
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -17,9 +16,9 @@ from qiqc.builder import build_preprocessor
 from qiqc.builder import build_tokenizer
 from qiqc.builder import build_ensembler
 from qiqc.datasets import load_qiqc
+from qiqc.embeddings import build_word_vectors
 from qiqc.embeddings import load_pretrained_vectors
-from qiqc.model_selection import classification_metrics
-from qiqc.model_selection import ClassificationResult
+from qiqc.model_selection import classification_metrics, ClassificationResult
 from qiqc.utils import pad_sequence, set_seed
 
 
@@ -76,23 +75,20 @@ def train(config):
     submit_df['tokens'] = submit_df.question_text.apply(
         lambda x: tokenizer(preprocessor(x)))
     tokens = train_df.tokens.append(submit_df.tokens).values
-    tokens_flatten = [token for _ in tokens for token in _]
 
     print('Build vocabulary...')
-    with Pool(processes=config['processes']) as pool:
-        _tokens = np.array_split(tokens_flatten, config['processes'])
-        counters = pool.map(Counter, _tokens)
-    word_freq = Counter()
-    [word_freq.update(c) for c in counters]
-    token2id = dict([('<PAD>', 0), ('<UNK>', 1)] + [
-        (w, i + 2) for i, (w, n) in enumerate(word_freq.most_common())])
-    if config['vocab']['min_count'] is not None:
-        word_freq = Counter(dict(filter(
-            lambda x: x[1] > config['vocab']['min_count'],
-            word_freq.most_common())))
-    if config['vocab']['max_size'] is not None:
-        word_freq = Counter(dict(
-            word_freq.most_common(config['vocab']['max_size'])))
+    vocab = Dictionary(tokens, prune_at=None)
+    dfs = sorted(vocab.dfs.items(), key=lambda x: x[1], reverse=True)
+    token2id = dict(
+        **{'<PAD>': 0, '<UNK>': 1},
+        **dict([(vocab[idx], i + 2) for i, (idx, freq) in enumerate(dfs)]))
+    vocab.filter_extremes(
+        no_below=config['vocab']['min_count'], no_above=1.0,
+        keep_n=config['vocab']['max_size'])
+    dfs = sorted(vocab.dfs.items(), key=lambda x: x[1], reverse=True)
+    word_freq = dict([(vocab[idx], freq) for idx, freq in dfs])
+    assert token2id['<PAD>'] == 0
+
     train_df['token_ids'] = train_df.tokens.apply(
         lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
     submit_df['token_ids'] = submit_df.tokens.apply(
@@ -101,6 +97,13 @@ def train(config):
     print('Load pretrained vectors...')
     pretrained_vectors = load_pretrained_vectors(
         config['embedding']['src'], token2id, test=config['test'])
+    qiqc_vectors = []
+    for name, _pretrained_vectors in pretrained_vectors.items():
+        vec, unk_freq = build_word_vectors(word_freq, _pretrained_vectors)
+        print(f'UNK of {name}: {len(unk_freq)} / {len(word_freq)}')
+        print(f'    ex. {list(unk_freq.items())[:10]}')
+        qiqc_vectors.append(vec)
+    qiqc_vectors = np.array(qiqc_vectors).mean(axis=0)
 
     train_X = torch.Tensor(train_df.token_ids).type(torch.long)
     train_W = torch.Tensor(train_df.weights).type(torch.float)
@@ -147,7 +150,7 @@ def train(config):
             valid_dataset, batch_size=config['batchsize_valid'])
 
         embedding = build_embedding(
-            i_cv, config, tokens, word_freq, token2id, pretrained_vectors)
+            i_cv, config, tokens, word_freq, token2id, qiqc_vectors)
         model = build_model(i_cv, config, embedding)
         model = model.to_device(config['device'])
         optimizer = build_optimizer(i_cv, config, model)

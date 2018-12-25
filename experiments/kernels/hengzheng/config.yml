@@ -6,7 +6,7 @@ maxlen: 72
 
 vocab:
   max_size: 95000
-  min_count:
+  min_count: 5
 preprocessors:
   - lower
   - punct
@@ -16,7 +16,7 @@ preprocessors:
 tokenizer: space
 embedding:
   finetune:
-    False
+    True
   src:
     - glove
     - paragram

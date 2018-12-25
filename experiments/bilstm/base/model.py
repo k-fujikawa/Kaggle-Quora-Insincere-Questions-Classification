@@ -29,7 +29,7 @@ def build_embedding(
     # Fine tuning embedding
     model = Word2VecEx(**config['embedding']['params'])
     model.build_vocab_from_freq(word_freq)
-    model.wv.vectors = np.array([v.wv.vectors for v in vecs]).mean(axis=0)
+    model.wv.vectors[:] = np.array([v.wv.vectors for v in vecs]).mean(axis=0)
     if config['embedding']['finetune']:
         model.train(tokens, total_examples=len(tokens), epochs=1)
     mat = model.build_embedding_matrix(

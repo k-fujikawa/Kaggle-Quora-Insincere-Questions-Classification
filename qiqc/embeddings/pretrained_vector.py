@@ -33,23 +33,36 @@ def load_pretrained_vector(name, tokens, test=False):
     return loader[name].load(tokens, limit=limit)
 
 
+def build_word_vectors(word_freq, vec):
+    vectors = []
+    unk_freq = {}
+    mean, std = vec.wv.vectors.mean(), vec.wv.vectors.std()
+    for token, freq in word_freq.items():
+        if token in vec.vocab:
+            vectors.append(vec[token])
+        else:
+            vectors.append(np.random.normal(mean, std, 300))
+            unk_freq[token] = freq
+    return np.array(vectors), unk_freq
+
+
 class BasePretrainedVector(object):
 
     @classmethod
     def load(cls, tokens, limit=None):
-        coefs = []
+        coefs = {}
         for i, o in enumerate(
                 open(cls.path, encoding="utf8", errors='ignore')):
             token, *vector = o.split(' ')
+            token = str.lower(token)
             if limit is not None and i > limit:
                 break
-            if len(o) <= 100 or str.lower(token) not in tokens:
+            if len(o) <= 100 or token not in tokens or token in coefs:
                 continue
-            coefs.append((token, np.array(vector, 'f')))
+            coefs[token] = np.array(vector, 'f')
 
-        embeddings_index = dict(coefs)
         vec = KeyedVectors(300)
-        vec.add(list(embeddings_index.keys()), list(embeddings_index.values()))
+        vec.add(list(coefs.keys()), list(coefs.values()))
 
         return vec
 
