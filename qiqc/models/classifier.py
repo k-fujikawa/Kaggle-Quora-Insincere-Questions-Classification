@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-import qiqc
+from qiqc.models import MLP
 
 
 class BinaryClassifier(nn.Module):
@@ -11,7 +11,7 @@ class BinaryClassifier(nn.Module):
         self.encoder = encoder
         in_size = config['encoder']['n_hidden'] *\
             config['encoder']['out_scale']
-        self.mlp = qiqc.models.MLP(
+        self.mlp = MLP(
             n_layers=config['mlp']['n_layers'],
             in_size=in_size,
             out_size=config['mlp']['n_hidden'],
