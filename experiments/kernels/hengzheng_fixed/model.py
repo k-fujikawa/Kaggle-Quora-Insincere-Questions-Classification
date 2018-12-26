@@ -6,9 +6,17 @@ from qiqc.models import Word2VecEx
 
 
 def build_sampler(i, epoch, weights):
-    return None
+    # n_minorities = int((weights == weights.max()).sum())
+    n_minorities = len(weights)
+    # if epoch % 2 == 0:
+    if i == 0:
+        sampler = torch.utils.data.WeightedRandomSampler(
+            weights=weights, num_samples=n_minorities, replacement=True)
+    else:
+        sampler = None
+    return sampler
 
-    
+
 def build_embedding(
         i, config, tokens, word_freq, token2id, pretrained_vectors):
     assert isinstance(pretrained_vectors, np.ndarray)

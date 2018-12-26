@@ -23,6 +23,7 @@ preprocessors = {
     'lower': str.lower,
     'punct': PunctSpacer(),
     'number': NumberReplacer(),
+    'number+underscore': NumberReplacer(with_underscore=True),
     'hengzheng_mispell': HengZhengMispellReplacer(),
     'keras': KerasFilterReplacer(),
 }

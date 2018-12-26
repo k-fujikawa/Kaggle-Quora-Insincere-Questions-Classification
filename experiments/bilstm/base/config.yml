@@ -6,17 +6,16 @@ maxlen: 72
 
 vocab:
   max_size:
-  min_count: 10
+  min_count: 5
 preprocessors:
   - lower
   - punct
-  - number
+  - number+underscore
   - hengzheng_mispell
-  - keras
 tokenizer: space
 embedding:
   finetune:
-    True
+    False
   src:
     - glove
     - paragram

@@ -1,14 +1,12 @@
 def build_gridsearch_params():
     params = {}
-    # params['tokenizer'] = ['space']
+    params['tokenizer'] = ['space']
     params['preprocessors'] = [
-        ['lower', 'punct', 'number', 'hengzheng_mispell', 'keras'],
         ['lower', 'punct', 'number', 'hengzheng_mispell'],
-        ['lower', 'punct', 'number+underscore', 'hengzheng_mispell'],
         ['lower', 'punct', 'hengzheng_mispell'],
     ]
-    # params['embedding.standardize'] = [True, False]
-    # params['embedding.finetune'] = [True, False]
+    params['embedding.standardize'] = [True, False]
+    params['embedding.finetune'] = [True, False]
     # params['featurizer.n_finetune'] = [1, 2]
     # params['model.embed.alpha'] = [1e-5, 1e-4]
     # params['model.mlp.bn'] = [True, False]

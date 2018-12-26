@@ -1,7 +1,7 @@
 batchsize: 512
 batchsize_valid: 1024
 seed: 0
-epochs: 5
+epochs: 6
 maxlen: 72
 
 vocab:
@@ -12,7 +12,6 @@ preprocessors:
   - punct
   - number
   - hengzheng_mispell
-  - keras
 tokenizer: space
 embedding:
   finetune:

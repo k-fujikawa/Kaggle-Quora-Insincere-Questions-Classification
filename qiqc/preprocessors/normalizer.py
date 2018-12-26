@@ -35,12 +35,16 @@ class PunctSpacer(StringReplacer):
 
 class NumberReplacer(RegExpReplacer):
 
-    def __init__(self):
+    def __init__(self, with_underscore=False):
+        prefix, suffix = '', ''
+        if with_underscore:
+            prefix += ' __'
+            suffix = '__ '
         rule = {
-            '[0-9]{5,}': ' __#####__ ',
-            '[0-9]{4}': ' __####__ ',
-            '[0-9]{3}': ' __###__ ',
-            '[0-9]{2}': ' __##__ ',
+            '[0-9]{5,}': f'{prefix}#####{suffix}',
+            '[0-9]{4}': f'{prefix}####{suffix}',
+            '[0-9]{3}': f'{prefix}###{suffix}',
+            '[0-9]{2}': f'{prefix}##{suffix}',
         }
         super().__init__(rule)
 
