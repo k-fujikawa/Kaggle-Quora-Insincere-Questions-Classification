@@ -16,6 +16,8 @@ tokenizer: space
 embedding:
   finetune:
     False
+  reload:
+    False
   src:
     - glove
     - paragram

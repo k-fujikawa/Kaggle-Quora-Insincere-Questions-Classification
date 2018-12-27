@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-from qiqc.models import MLP
+from qiqc.models.fc.mlp import MLP
 
 
 class BinaryClassifier(nn.Module):
@@ -39,8 +39,8 @@ class BinaryClassifier(nn.Module):
     def forward(self, X):
         mask = X != 0
         maxlen = (mask == 1).any(dim=0).sum()
-        X = X[:, :maxlen].to(self.device)
-        mask = mask[:, :maxlen].to(self.device)
+        X = X[:, :maxlen]
+        mask = mask[:, :maxlen]
 
         h = self.encoder(X, mask)
         h = self.mlp(h)

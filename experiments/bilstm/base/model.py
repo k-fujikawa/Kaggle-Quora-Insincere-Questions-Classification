@@ -27,6 +27,8 @@ def build_embedding(
     model.wv.vectors[:] = pretrained_vectors
     if config['embedding']['finetune']:
         model.train(tokens, total_examples=len(tokens), epochs=1)
+    if config['embedding']['reload']:
+        model.wv.vectors[:] = pretrained_vectors
     mat = model.build_embedding_matrix(
         token2id, standardize=config['embedding']['standardize'])
 
