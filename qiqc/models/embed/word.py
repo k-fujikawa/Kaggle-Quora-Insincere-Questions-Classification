@@ -21,7 +21,6 @@ class WordEmbedding(nn.Module):
             self.word_embed.weight = nn.Parameter(
                 torch.Tensor(pretrained_vectors))
             self.word_embed.weight.requires_grad = not freeze_embed
-            self.word_embed = EmbeddingTable(pretrained_vectors)
         if n_hidden > 0:
             self.out_dim = n_hidden
             self.linear = nn.Linear(n_embed, n_hidden)
@@ -39,17 +38,6 @@ class WordEmbedding(nn.Module):
         if self.position:
             h += self.positional_embed(x)
         return h
-
-
-class EmbeddingTable(nn.Module):
-
-    def __init__(self, table):
-        super().__init__()
-        self.table = nn.Parameter(torch.Tensor(table))
-        self.table.requires_grad = False
-
-    def __call__(self, x):
-        return self.table[x]
 
 
 class PositionalEmbedding(nn.Module):
