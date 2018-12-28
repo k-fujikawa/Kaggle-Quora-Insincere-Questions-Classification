@@ -18,9 +18,7 @@ class AverageEnsembler(object):
         self.batchsize_valid = batchsize_valid
 
     def fit(self, X, t, sampling=0.1):
-        indices = np.random.permutation(range(int(len(X) * sampling)))
-        train_X = X[indices].to(self.device)
-        t = t[indices]
+        train_X = X.to(self.device)
         iterator = DataLoader(
             train_X, batch_size=self.batchsize_valid, shuffle=False)
         ys = defaultdict(list)
@@ -32,7 +30,7 @@ class AverageEnsembler(object):
         y = np.array(ys).mean(axis=0)
         metrics = classification_metrics(y, t)
         self.threshold = metrics['threshold']
-        return metrics
+        return y, metrics
 
     def predict_proba(self, X):
         pred_X = X.to(self.device)

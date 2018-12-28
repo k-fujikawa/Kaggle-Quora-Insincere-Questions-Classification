@@ -33,7 +33,7 @@ def load_pretrained_vector(name, tokens, test=False):
     return loader[name].load(tokens, limit=limit)
 
 
-def build_word_vectors(word_freq, vec):
+def build_word_vectors(word_freq, vec, min_count):
     vectors = []
     unk_freq = {}
     mean, std = vec.wv.vectors.mean(), vec.wv.vectors.std()
@@ -41,7 +41,10 @@ def build_word_vectors(word_freq, vec):
         if token in vec.vocab:
             vectors.append(vec[token])
         else:
-            vectors.append(np.random.normal(mean, std, 300))
+            if freq >= min_count:
+                vectors.append(np.random.normal(mean, std, 300))
+            else:
+                vectors.append(np.zeros(300, 'f'))
             unk_freq[token] = freq
     return np.array(vectors), unk_freq
 

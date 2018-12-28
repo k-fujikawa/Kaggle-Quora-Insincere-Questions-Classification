@@ -3,6 +3,7 @@ batchsize_valid: 1024
 seed: 0
 epochs: 5
 maxlen: 72
+logging: True
 
 vocab:
   max_size:
@@ -14,9 +15,9 @@ preprocessors:
   - hengzheng_mispell
 tokenizer: space
 embedding:
+  add_los:
+    True
   finetune:
-    False
-  reload:
     False
   src:
     - glove
@@ -26,6 +27,7 @@ embedding:
   params:
     alpha: 1e-4
     size: 300
+    min_count: 0
   standardize:
     False
 

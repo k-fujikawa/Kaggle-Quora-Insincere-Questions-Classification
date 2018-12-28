@@ -27,10 +27,14 @@ def build_embedding(
     model.wv.vectors[:] = pretrained_vectors
     if config['embedding']['finetune']:
         model.train(tokens, total_examples=len(tokens), epochs=1)
-    if config['embedding']['reload']:
-        model.wv.vectors[:] = pretrained_vectors
+        model.wv.vectors[(pretrained_vectors == 0).all(axis=1)] = 0
     mat = model.build_embedding_matrix(
         token2id, standardize=config['embedding']['standardize'])
+    if config['embedding']['add_los']:
+        mean = mat[(mat != 0).all(axis=1)].mean(axis=0)
+        std = mat[(mat != 0).all(axis=1)].std(axis=0)
+        vec = np.random.normal(mean, std, (config['maxlen'], mat.shape[1]))
+        mat[1:config['maxlen'] + 1] = vec
 
     return mat
 
