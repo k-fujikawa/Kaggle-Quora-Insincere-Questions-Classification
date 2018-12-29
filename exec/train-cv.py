@@ -97,7 +97,7 @@ def train(config):
     if config['embedding']['add_los']:
         def replace_to_los(x):
             length = (x != 0).sum()
-            x[length - 1] = length
+            x[min(length, config['maxlen']) - 1] = length
             return x
         train_df['token_id'] = train_df.token_ids.apply(replace_to_los)
         submit_df['token_id'] = submit_df.token_ids.apply(replace_to_los)
