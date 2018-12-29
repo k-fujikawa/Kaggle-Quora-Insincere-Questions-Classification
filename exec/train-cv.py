@@ -66,6 +66,7 @@ def train(config):
     build_optimizer = modelconf.build_optimizer
 
     print(config)
+    start = time.time()
     set_seed(config['seed'])
     train_df, submit_df = load_qiqc(n_rows=config['n_rows'])
     preprocessor = build_preprocessor(config['preprocessors'])
@@ -137,7 +138,6 @@ def train(config):
         n_splits=config['cv'], shuffle=True, random_state=config['seed'])
     train_results, valid_results = [], []
     best_models = {}
-    start = time.time()
     for i_cv, (train_indices, valid_indices) in enumerate(
             splitter.split(train_X, train_t)):
         if config['cv_part'] is not None and i_cv >= config['cv_part']:
