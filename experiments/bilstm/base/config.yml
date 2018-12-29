@@ -18,7 +18,7 @@ embedding:
   add_los:
     True
   finetune:
-    False
+    True
   src:
     - glove
     - paragram
@@ -51,4 +51,6 @@ model:
     bn: True
     n_layers: 2
     n_hidden: 128
-ensembler: avg
+ensembler:
+  model: avg
+  n_train: 0.1

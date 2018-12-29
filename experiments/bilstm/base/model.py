@@ -4,7 +4,7 @@ from torch import nn
 
 from qiqc.builder import build_aggregator
 from qiqc.models import Word2VecEx
-from qiqc.models import WordEmbedding
+from qiqc.models import WordEmbedding, EmbeddingUnit
 from qiqc.models import BinaryClassifier
 
 
@@ -19,41 +19,33 @@ def build_sampler(i, epoch, weights):
 
 
 def build_embedding(
-        i, config, tokens, word_freq, token2id, pretrained_vectors):
-    assert isinstance(pretrained_vectors, np.ndarray)
-    # Fine tuning embedding
-    model = Word2VecEx(**config['embedding']['params'])
-    model.build_vocab_from_freq(word_freq)
-    model.wv.vectors[:] = pretrained_vectors
+        i, config, tokens, unk_freq, token2id, initial_vectors):
+    assert isinstance(initial_vectors, np.ndarray)
     if config['embedding']['finetune']:
-        model.train(tokens, total_examples=len(tokens), epochs=1)
-        model.wv.vectors[(pretrained_vectors == 0).all(axis=1)] = 0
-    mat = model.build_embedding_matrix(
-        token2id, standardize=config['embedding']['standardize'])
-    if config['embedding']['add_los']:
-        mean = mat[(mat != 0).all(axis=1)].mean(axis=0)
-        std = mat[(mat != 0).all(axis=1)].std(axis=0)
-        vec = np.random.normal(mean, std, (config['maxlen'], mat.shape[1]))
-        mat[1:config['maxlen'] + 1] = vec
-
-    return mat
+        unfixed_tokens = set([token for token, freq in unk_freq.items()
+                             if freq >= config['vocab']['min_count']])
+        fixed_idxmap = [idx if token not in unfixed_tokens else 0
+                        for token, idx in token2id.items()]
+        unfixed_idxmap = [idx if token in unfixed_tokens else 0
+                          for token, idx in token2id.items()]
+        fixed_embedding = nn.Embedding.from_pretrained(
+            torch.Tensor(initial_vectors[fixed_idxmap]), freeze=True)
+        unfixed_embedding = nn.Embedding.from_pretrained(
+            torch.Tensor(initial_vectors[unfixed_idxmap]), freeze=False)
+        embed = EmbeddingUnit(fixed_embedding, unfixed_embedding)
+    else:
+        embed = nn.Embedding.from_pretrained(initial_vectors, freeze=True)
+    return embed
 
 
 class Encoder(nn.Module):
 
-    def __init__(self, config, embedding_matrix):
+    def __init__(self, config, embedding):
         super().__init__()
-        self.embed = WordEmbedding(
-            *embedding_matrix.shape,
-            n_hidden=config['embed']['n_hidden'],
-            freeze_embed=config['embed']['freeze_embed'],
-            pretrained_vectors=embedding_matrix,
-            position=config['embed']['position'],
-            hidden_bn=config['embed']['hidden_bn'],
-            dropout=config['embed']['dropout'],
-        )
+        self.embedding = embedding
+        self.dropout = nn.Dropout(config['embed']['dropout'])
         self.encoder = nn.LSTM(
-            input_size=self.embed.out_dim,
+            input_size=config['embed']['n_embed'],
             hidden_size=config['encoder']['n_hidden'],
             num_layers=config['encoder']['n_layers'],
             dropout=config['encoder']['dropout'],
@@ -65,14 +57,15 @@ class Encoder(nn.Module):
         )
 
     def forward(self, X, mask):
-        h = self.embed(X)
+        h = self.embedding(X)
+        h = self.dropout(h)
         h, _ = self.encoder(h)
         h = self.aggregator(h, mask)
         return h
 
 
-def build_model(i, config, embedding_matrix):
-    encoder = Encoder(config['model'], embedding_matrix)
+def build_model(i, config, embedding):
+    encoder = Encoder(config['model'], embedding)
     clf = BinaryClassifier(config['model'], encoder)
     return clf
 

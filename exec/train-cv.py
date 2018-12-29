@@ -1,4 +1,5 @@
 import argparse
+import json
 import time
 from copy import deepcopy
 from pathlib import Path
@@ -87,7 +88,11 @@ def train(config):
         **dict([(f'<{i}>', i) for i in range(1, config['maxlen'] + 1)]),
         **dict([(vocab[idx], i + config['maxlen'] + 1)
                 for i, (idx, freq) in enumerate(dfs)]))
-    word_freq = dict([(vocab[idx], freq) for idx, freq in dfs])
+    word_freq = dict(
+        **{'<PAD>': 0},
+        **dict([(f'<{i}>', config['vocab']['min_count'])
+                for i in range(1, config['maxlen'] + 1)]),
+        **dict([(vocab[idx], freq) for idx, freq in dfs]))
     assert token2id['<PAD>'] == 0
 
     train_df['token_ids'] = train_df.tokens.apply(
@@ -105,15 +110,21 @@ def train(config):
     print('Load pretrained vectors...')
     pretrained_vectors = load_pretrained_vectors(
         config['embedding']['src'], token2id, test=config['test'])
-    qiqc_vectors = []
+    qiqc_vectors, known_freqs, unk_freqs = [], [], []
     for name, _pretrained_vectors in pretrained_vectors.items():
-        vec, unk_freq = build_word_vectors(
+        vec, known_freq, unk_freq = build_word_vectors(
             word_freq, _pretrained_vectors, config['vocab']['min_count'])
-        print(f'UNK of {name} <high>: {len(unk_freq)} / {len(word_freq)}'
+        ex = list(unk_freq.items())[config["maxlen"] + 1:config["maxlen"] + 11]
+        print(f'UNK of {name}: {len(unk_freq)} / {len(word_freq)}'
               f' ({100 * len(unk_freq) / len(word_freq):.2f} %)')
-        print(f'    ex. {list(unk_freq.items())[:10]}')
+        print(f'    ex. {ex}')
         qiqc_vectors.append(vec)
+        known_freqs.append(known_freq)
+        unk_freqs.append(unk_freq)
     qiqc_vectors = np.array(qiqc_vectors).mean(axis=0)
+    unk_tokens = set.intersection(*[set(fq.keys()) for fq in unk_freqs])
+    unk_freq = dict([(token, freq) for token, freq
+                     in word_freq.items() if token in unk_tokens])
 
     # Train : Test split for holdout training
     if config['holdout']:
@@ -158,7 +169,7 @@ def train(config):
             valid_dataset, batch_size=config['batchsize_valid'])
 
         embedding = build_embedding(
-            i_cv, config, tokens, word_freq, token2id, qiqc_vectors)
+            i_cv, config, tokens, unk_freq, token2id, qiqc_vectors)
         model = build_model(i_cv, config, embedding)
         model = model.to_device(config['device'])
         optimizer = build_optimizer(i_cv, config, model)
@@ -207,7 +218,7 @@ def train(config):
         valid_results.append(valid_result)
 
     # Build ensembler
-    ensembler = build_ensembler(config['ensembler'])(
+    ensembler = build_ensembler(config['ensembler']['model'])(
         models=list(best_models.values()),
         results=valid_results,
         device=config['device'],
@@ -215,7 +226,8 @@ def train(config):
         batchsize_valid=config['batchsize_valid'],
     )
 
-    indices = np.random.permutation(range(int(len(train_X) * 0.1)))
+    indices = np.random.permutation(
+        range(int(len(train_X) * config['ensembler']['n_train'])))
     X, t = train_X[indices], train_t[indices].numpy()
     y, ensemble_score = ensembler.fit(X, t)
     y_pred = y > ensemble_score['threshold']
@@ -248,11 +260,9 @@ def train(config):
         df['y'] = y - ensembler.threshold
         df['t'] = df.target
         maxlen = config['maxlen']
+        df['_tokens'] = df.tokens.apply(lambda xs: [x in unk_freq for x in xs])
         df['_tokens'] = df.apply(
-            lambda x: embedding[x.token_ids].all(axis=1)[:len(x.tokens)],
-            axis=1)
-        df['_tokens'] = df.apply(
-            lambda x: np.where(x._tokens, x.tokens[:maxlen], '<UNK>'), axis=1)
+            lambda x: np.where(x._tokens, '<UNK>', x.tokens[:maxlen]), axis=1)
         is_error = y_pred != t
         tp = np.argwhere(~is_error * t.astype('bool'))[:, 0]
         tn = np.argwhere(~is_error * ~t.astype('bool'))[:, 0]
@@ -263,6 +273,7 @@ def train(config):
         df.iloc[tn].to_csv(f'{config["outdir"]}/TN.tsv', sep='\t')
         df.iloc[fp].to_csv(f'{config["outdir"]}/FP.tsv', sep='\t')
         df.iloc[fn].to_csv(f'{config["outdir"]}/FN.tsv', sep='\t')
+        json.dump(unk_freq, open(config['outdir'] / 'unk.json', 'w'), indent=4)
 
     print(scores)
 
