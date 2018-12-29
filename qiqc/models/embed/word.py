@@ -40,6 +40,21 @@ class WordEmbedding(nn.Module):
         return h
 
 
+class EmbeddingUnit(nn.Module):
+
+    def __init__(self, *embeddings):
+        super().__init__()
+        self.embeddings = nn.ModuleList(embeddings)
+        self.masks = [(e.weight != 0).type(torch.float) for e in embeddings]
+        self.weights = [e.weight for e in embeddings]
+
+    def forward(self, input):
+        hs = []
+        for embedding, mask in zip(self.embeddings, self.masks):
+            hs.append(embedding(input) * mask[input])
+        return sum(hs)
+
+
 class PositionalEmbedding(nn.Module):
 
     def __init__(self, d_model, max_len=100):

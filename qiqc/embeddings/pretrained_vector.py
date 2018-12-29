@@ -5,6 +5,24 @@ import numpy as np
 from gensim.models import KeyedVectors
 
 
+def build_word_vectors(word_freq, vec, min_count):
+    vectors = []
+    known_freq = {}
+    unk_freq = {}
+    mean, std = vec.wv.vectors.mean(), vec.wv.vectors.std()
+    for token, freq in word_freq.items():
+        if token in vec.vocab:
+            known_freq[token] = freq
+            vectors.append(vec[token])
+        else:
+            unk_freq[token] = freq
+            if freq >= min_count:
+                vectors.append(np.random.normal(mean, std, 300))
+            else:
+                vectors.append(np.zeros(300, 'f'))
+    return np.array(vectors), known_freq, unk_freq
+
+
 def load_pretrained_vectors(names, tokens, test=False):
     assert isinstance(names, list)
     with Pool(processes=len(names)) as pool:
@@ -31,22 +49,6 @@ def load_pretrained_vector(name, tokens, test=False):
         raise ValueError
 
     return loader[name].load(tokens, limit=limit)
-
-
-def build_word_vectors(word_freq, vec, min_count):
-    vectors = []
-    unk_freq = {}
-    mean, std = vec.wv.vectors.mean(), vec.wv.vectors.std()
-    for token, freq in word_freq.items():
-        if token in vec.vocab:
-            vectors.append(vec[token])
-        else:
-            if freq >= min_count:
-                vectors.append(np.random.normal(mean, std, 300))
-            else:
-                vectors.append(np.zeros(300, 'f'))
-            unk_freq[token] = freq
-    return np.array(vectors), unk_freq
 
 
 class BasePretrainedVector(object):
