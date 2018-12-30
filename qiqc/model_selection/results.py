@@ -4,30 +4,28 @@ from sklearn import metrics
 from tensorboardX import SummaryWriter
 
 
-# TODO: refactor
 def classification_metrics(ys, ts):
     scores = {}
     ys = np.concatenate(ys)
     ts = np.concatenate(ts)
 
     if len(np.unique(ts)) > 1:
+        # Search optimal threshold
+        precs, recs, thresholds = metrics.precision_recall_curve(ts, ys)
+        thresholds = np.append(thresholds, 1.001)
+        fbetas = 2 / (1 / precs + 1 / recs)
+        best_idx = np.argmax(fbetas)
+        threshold = thresholds[best_idx]
+        prec = precs[best_idx]
+        rec = recs[best_idx]
+        fbeta = fbetas[best_idx]
+
         scores['ap'] = metrics.average_precision_score(ts, ys)
         scores['rocauc'] = metrics.roc_auc_score(ts, ys)
-        best_fbeta = -1
-        best_threshold = 0
-        for threshold in np.arange(0.1, 0.9, 0.01):
-            ys_bin = np.digitize(ys, [threshold])
-            prec, rec, fbeta, sup = metrics.precision_recall_fscore_support(
-                ts, ys_bin, labels=[0, 1], warn_for=[])
-            if best_fbeta < fbeta[1]:
-                best_threshold = threshold
-                best_prec = prec[1]
-                best_rec = rec[1]
-                best_fbeta = fbeta[1]
-        scores['threshold'] = best_threshold
-        scores['prec'] = best_prec
-        scores['rec'] = best_rec
-        scores['fbeta'] = best_fbeta
+        scores['threshold'] = threshold
+        scores['prec'] = prec
+        scores['rec'] = rec
+        scores['fbeta'] = fbeta
 
     return scores
 
@@ -59,6 +57,7 @@ class ClassificationResult(object):
         summary = dict(name=self.name, loss=loss, **score)
         if len(score) > 0:
             if self.summary is None:
+
                 self.summary = pd.DataFrame([summary], index=[epoch])
                 self.summary.index.name = 'epoch'
             else:
