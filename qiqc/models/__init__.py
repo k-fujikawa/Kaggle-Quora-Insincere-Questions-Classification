@@ -11,4 +11,5 @@ from qiqc.models.embed.word import EmbeddingUnit  # NOQA
 from qiqc.models.encoder.attention import MultiHeadedAttention  # NOQA
 from qiqc.models.encoder.transformer import TransformerEncoder  # NOQA
 from qiqc.models.ensembler.simple import AverageEnsembler  # NOQA
+from qiqc.models.ensembler.stacking import LinearEnsembler  # NOQA
 from qiqc.models.fc.mlp import MLP  # NOQA

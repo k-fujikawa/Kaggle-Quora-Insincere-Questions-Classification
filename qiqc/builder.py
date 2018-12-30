@@ -1,10 +1,12 @@
 import nltk
+import torch
 
 from qiqc.models.aggregator.pooling import AvgPoolingAggregator
 from qiqc.models.aggregator.pooling import MaxPoolingAggregator
 from qiqc.models.aggregator.pooling import SumPoolingAggregator
 from qiqc.models.aggregator.state import BiRNNLastStateAggregator
 from qiqc.models.ensembler.simple import AverageEnsembler
+from qiqc.models.ensembler.stacking import LinearEnsembler
 
 from qiqc.preprocessors.pipeline import PreprocessPipeline
 from qiqc.preprocessors.normalizer import PunctSpacer
@@ -32,7 +34,12 @@ tokenizers = {
     'word_tokenize': nltk.word_tokenize,
 }
 ensemblers = {
-    'avg': AverageEnsembler
+    'avg': AverageEnsembler,
+    'linear': LinearEnsembler,
+}
+optimizers = {
+    'adam': torch.optim.Adam,
+    'sgd': torch.optim.SGD,
 }
 
 
@@ -53,3 +60,7 @@ def build_tokenizer(name):
 
 def build_ensembler(name):
     return ensemblers[name]
+
+
+def build_optimizer(name):
+    return optimizers[name]
