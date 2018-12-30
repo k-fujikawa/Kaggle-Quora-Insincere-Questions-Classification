@@ -9,7 +9,7 @@ from qiqc.models.ensembler.simple import AverageEnsembler
 from qiqc.preprocessors.pipeline import PreprocessPipeline
 from qiqc.preprocessors.normalizer import PunctSpacer
 from qiqc.preprocessors.normalizer import NumberReplacer
-from qiqc.preprocessors.normalizer import HengZhengMispellReplacer
+from qiqc.preprocessors.normalizer import MisspellReplacer
 from qiqc.preprocessors.normalizer import KerasFilterReplacer
 
 
@@ -24,7 +24,7 @@ preprocessors = {
     'punct': PunctSpacer(),
     'number': NumberReplacer(),
     'number+underscore': NumberReplacer(with_underscore=True),
-    'hengzheng_mispell': HengZhengMispellReplacer(),
+    'misspell': MisspellReplacer(),
     'keras': KerasFilterReplacer(),
 }
 tokenizers = {
