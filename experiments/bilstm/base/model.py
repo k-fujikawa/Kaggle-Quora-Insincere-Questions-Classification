@@ -3,8 +3,7 @@ import numpy as np
 from torch import nn
 
 from qiqc.builder import build_aggregator
-from qiqc.models import Word2VecEx
-from qiqc.models import WordEmbedding, EmbeddingUnit
+from qiqc.models import EmbeddingUnit
 from qiqc.models import BinaryClassifier
 
 

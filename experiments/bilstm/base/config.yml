@@ -55,4 +55,5 @@ model:
     n_hidden: 128
 ensembler:
   model: linear
-  n_train: 0.1
+  test_size: 0.1
+  epochs: 1

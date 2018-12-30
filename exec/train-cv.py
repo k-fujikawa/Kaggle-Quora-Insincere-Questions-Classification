@@ -226,7 +226,7 @@ def train(config):
     )
 
     y, indices, ensemble_score = ensembler.fit(
-        train_X, train_t, config['ensembler']['n_train'])
+        train_X, train_t, config['ensembler']['test_size'])
     y_pred = y > ensemble_score['threshold']
     df, t = train_df.iloc[indices].copy(), train_t.numpy()[indices]
 
