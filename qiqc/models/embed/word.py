@@ -46,7 +46,8 @@ class EmbeddingUnit(nn.Module):
         super().__init__()
         self.embeddings = nn.ModuleList(embeddings)
         self.masks = [(e.weight != 0).type(torch.float) for e in embeddings]
-        self.weights = [e.weight for e in embeddings]
+        self.masks = nn.Parameter(torch.stack(self.masks))
+        self.masks.require_grad = False
 
     def forward(self, input):
         hs = []

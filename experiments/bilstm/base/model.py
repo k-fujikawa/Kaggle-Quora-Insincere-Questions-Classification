@@ -34,7 +34,8 @@ def build_embedding(
             torch.Tensor(initial_vectors[unfixed_idxmap]), freeze=False)
         embed = EmbeddingUnit(fixed_embedding, unfixed_embedding)
     else:
-        embed = nn.Embedding.from_pretrained(initial_vectors, freeze=True)
+        embed = nn.Embedding.from_pretrained(
+            torch.Tensor(initial_vectors), freeze=True)
     return embed
 
 
