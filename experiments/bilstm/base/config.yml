@@ -54,6 +54,10 @@ model:
     n_layers: 2
     n_hidden: 128
 ensembler:
-  model: linear
+  model: mlp
   test_size: 0.1
   epochs: 1
+  mlp:
+    bn: True
+    n_layers: 2
+    n_hidden: 128

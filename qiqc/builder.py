@@ -7,6 +7,7 @@ from qiqc.models.aggregator.pooling import SumPoolingAggregator
 from qiqc.models.aggregator.state import BiRNNLastStateAggregator
 from qiqc.models.ensembler.simple import AverageEnsembler
 from qiqc.models.ensembler.stacking import LinearEnsembler
+from qiqc.models.ensembler.stacking import MLPEnsembler
 
 from qiqc.preprocessors.pipeline import PreprocessPipeline
 from qiqc.preprocessors.normalizer import PunctSpacer
@@ -36,6 +37,7 @@ tokenizers = {
 ensemblers = {
     'avg': AverageEnsembler,
     'linear': LinearEnsembler,
+    'mlp': MLPEnsembler,
 }
 optimizers = {
     'adam': torch.optim.Adam,

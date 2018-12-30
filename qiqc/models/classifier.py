@@ -9,6 +9,7 @@ class BinaryClassifier(nn.Module):
     def __init__(self, config, encoder):
         super().__init__()
         self.encoder = encoder
+        self.n_hidden = config['mlp']['n_hidden']
         in_size = config['encoder']['n_hidden'] *\
             config['encoder']['out_scale']
         self.mlp = MLP(
@@ -37,13 +38,7 @@ class BinaryClassifier(nn.Module):
         return self
 
     def forward(self, X):
-        mask = X != 0
-        maxlen = (mask == 1).any(dim=0).sum()
-        X = X[:, :maxlen]
-        mask = mask[:, :maxlen]
-
-        h = self.encoder(X, mask)
-        h = self.mlp(h)
+        h = self.predict_features(X)
         out = self.out(h)
         return out
 
@@ -51,3 +46,13 @@ class BinaryClassifier(nn.Module):
         y = self.forward(X)
         proba = torch.sigmoid(y).cpu().detach().numpy()
         return proba
+
+    def predict_features(self, X):
+        mask = X != 0
+        maxlen = (mask == 1).any(dim=0).sum()
+        X = X[:, :maxlen]
+        mask = mask[:, :maxlen]
+
+        h = self.encoder(X, mask)
+        h = self.mlp(h)
+        return h
