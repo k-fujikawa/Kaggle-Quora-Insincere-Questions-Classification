@@ -69,11 +69,3 @@ def build_model(i, config, embedding):
     encoder = Encoder(config['model'], embedding)
     clf = BinaryClassifier(config['model'], encoder)
     return clf
-
-
-def build_optimizer(i, config, model):
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=float(config['optimizer']['lr']))
-    # optimizer = torch.optim.SGD(
-    #     model.parameters(), lr=float(config['optimizer']['lr']))
-    return optimizer

@@ -16,6 +16,7 @@ import qiqc
 from qiqc.builder import build_preprocessor
 from qiqc.builder import build_tokenizer
 from qiqc.builder import build_ensembler
+from qiqc.builder import build_optimizer
 from qiqc.datasets import load_qiqc
 from qiqc.embeddings import build_word_vectors
 from qiqc.embeddings import load_pretrained_vectors
@@ -64,7 +65,6 @@ def train(config):
     build_embedding = modelconf.build_embedding
     build_model = modelconf.build_model
     build_sampler = modelconf.build_sampler
-    build_optimizer = modelconf.build_optimizer
 
     print(config)
     start = time.time()
@@ -172,7 +172,8 @@ def train(config):
             i_cv, config, tokens, unk_freq, token2id, qiqc_vectors)
         model = build_model(i_cv, config, embedding)
         model = model.to_device(config['device'])
-        optimizer = build_optimizer(i_cv, config, model)
+        optimizer = build_optimizer(config['optimizer']['name'])(
+            model.parameters(), **config['optimizer']['params'])
         train_result = ClassificationResult('train', config['outdir'])
         valid_result = ClassificationResult('valid', config['outdir'])
 
@@ -219,19 +220,15 @@ def train(config):
 
     # Build ensembler
     ensembler = build_ensembler(config['ensembler']['model'])(
+        config=config,
         models=list(best_models.values()),
         results=valid_results,
-        device=config['device'],
-        batchsize_train=config['batchsize'],
-        batchsize_valid=config['batchsize_valid'],
     )
 
-    indices = np.random.permutation(
-        range(int(len(train_X) * config['ensembler']['n_train'])))
-    X, t = train_X[indices], train_t[indices].numpy()
-    y, ensemble_score = ensembler.fit(X, t)
+    y, indices, ensemble_score = ensembler.fit(
+        train_X, train_t, config['ensembler']['n_train'])
     y_pred = y > ensemble_score['threshold']
-    df = train_df.iloc[indices].reset_index(drop=True)
+    df, t = train_df.iloc[indices].copy(), train_t.numpy()[indices]
 
     scores = dict(
         valid_fbeta=np.array([r.best_fbeta for r in valid_results]).mean(),
