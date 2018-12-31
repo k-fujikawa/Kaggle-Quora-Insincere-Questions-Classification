@@ -67,7 +67,7 @@ class BaseStackingEnsembler(BaseEnsembler, nn.Module):
 
         for epoch in range(self.epochs):
             for batch in tqdm(train_iter, desc='ensemble/train', leave=False):
-                batch_X, batch_t = X
+                batch_X, batch_t = batch
                 model.train()
                 optimizer.zero_grad()
                 loss = self.lossfunc(model(batch_X), batch_t)
