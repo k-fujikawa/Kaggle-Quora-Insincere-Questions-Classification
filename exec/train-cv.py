@@ -270,7 +270,8 @@ def train(config):
         df.iloc[tn].to_csv(f'{config["outdir"]}/TN.tsv', sep='\t')
         df.iloc[fp].to_csv(f'{config["outdir"]}/FP.tsv', sep='\t')
         df.iloc[fn].to_csv(f'{config["outdir"]}/FN.tsv', sep='\t')
-        json.dump(unk_freq, open(f'{config["outdir"]}/unk.json', 'w'), indent=4)
+        json.dump(
+            unk_freq, open(f'{config["outdir"]}/unk.json', 'w'), indent=4)
 
     print(scores)
 
