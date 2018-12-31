@@ -26,13 +26,13 @@ class MLPEnsembler(BaseStackingEnsembler):
     def __init__(self, config, models, results):
         lossfunc = nn.BCEWithLogitsLoss()
         mlp = MLP(
-            n_layers=config['ensembler']['mlp']['n_layers'],
+            n_layers=config['ensembler']['params']['n_layers'],
             in_size=sum([m.n_hidden + 1 for m in models]),
-            out_size=config['ensembler']['mlp']['n_hidden'],
+            out_size=config['ensembler']['params']['n_hidden'],
             actfun=nn.ReLU(True),
-            bn=config['ensembler']['mlp']['bn'],
+            bn=config['ensembler']['params']['bn'],
         )
-        out = nn.Linear(config['ensembler']['mlp']['n_hidden'], 1)
+        out = nn.Linear(config['ensembler']['params']['n_hidden'], 1)
         predictor = nn.Sequential(mlp, out)
         super().__init__(config, models, results, predictor, lossfunc)
 

@@ -20,6 +20,7 @@ def train_gridsearch(config, train):
         for k, v in results.items():
             gridparams.ix[i, k] = v
 
-    scores = gridparams.sort_values('valid_fbeta', ascending=False)
+    scores = gridparams.sort_values(
+        ['test_fbeta', 'valid_fbeta'], ascending=False)
     scores.to_csv(f'{outdir}/result.tsv', sep='\t')
     print(scores)
