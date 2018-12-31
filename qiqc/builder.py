@@ -64,5 +64,7 @@ def build_ensembler(name):
     return ensemblers[name]
 
 
-def build_optimizer(name):
-    return optimizers[name]
+def build_optimizer(config, model):
+    optimizer_cls = optimizers[config['name']]
+    optimizer = optimizer_cls(model.parameters(), **config['params'])
+    return optimizer

@@ -18,7 +18,7 @@ embedding:
   add_los:
     True
   finetune:
-    True
+    False
   src:
     - glove
     - paragram
@@ -35,6 +35,8 @@ optimizer:
   name: adam
   params:
     lr: 0.001
+  scheduler:
+    ReduceLROnPlateau
 model:
   embed:
     n_embed: 300
@@ -57,7 +59,7 @@ ensembler:
   model: mlp
   test_size: 0.1
   epochs: 1
-  mlp:
+  params:
     bn: True
     n_layers: 2
     n_hidden: 128

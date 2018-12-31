@@ -29,7 +29,7 @@ def main(args=None):
     parser.add_argument('--modeldir', '-m', type=Path, required=True)
     parser.add_argument('--device', '-g', type=int)
     parser.add_argument('--test', action='store_true')
-    parser.add_argument('--epochs', '-e', type=int, default=5)
+    parser.add_argument('--epochs', '-e', type=int, default=4)
     parser.add_argument('--outdir', '-o', type=str, default='test')
     parser.add_argument('--batchsize', '-b', type=int, default=512)
     parser.add_argument('--optuna-trials', type=int)
@@ -172,8 +172,7 @@ def train(config):
             i_cv, config, tokens, unk_freq, token2id, qiqc_vectors)
         model = build_model(i_cv, config, embedding)
         model = model.to_device(config['device'])
-        optimizer = build_optimizer(config['optimizer']['name'])(
-            model.parameters(), **config['optimizer']['params'])
+        optimizer = build_optimizer(config['optimizer'], model)
         train_result = ClassificationResult('train', config['outdir'])
         valid_result = ClassificationResult('valid', config['outdir'])
 
@@ -259,7 +258,8 @@ def train(config):
         maxlen = config['maxlen']
         df['_tokens'] = df.tokens.apply(lambda xs: [x in unk_freq for x in xs])
         df['_tokens'] = df.apply(
-            lambda x: np.where(x._tokens, '<UNK>', x.tokens[:maxlen]), axis=1)
+            lambda x: np.where(
+                x._tokens[:maxlen], '<UNK>', x.tokens[:maxlen]), axis=1)
         is_error = y_pred != t
         tp = np.argwhere(~is_error * t.astype('bool'))[:, 0]
         tn = np.argwhere(~is_error * ~t.astype('bool'))[:, 0]
@@ -270,7 +270,7 @@ def train(config):
         df.iloc[tn].to_csv(f'{config["outdir"]}/TN.tsv', sep='\t')
         df.iloc[fp].to_csv(f'{config["outdir"]}/FP.tsv', sep='\t')
         df.iloc[fn].to_csv(f'{config["outdir"]}/FN.tsv', sep='\t')
-        json.dump(unk_freq, open(config['outdir'] / 'unk.json', 'w'), indent=4)
+        json.dump(unk_freq, open(f'{config["outdir"]}/unk.json', 'w'), indent=4)
 
     print(scores)
 
