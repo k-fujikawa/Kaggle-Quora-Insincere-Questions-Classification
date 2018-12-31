@@ -3,6 +3,7 @@ import numpy as np
 from torch import nn
 
 from qiqc.builder import build_aggregator
+from qiqc.builder import build_encoder
 from qiqc.models import EmbeddingUnit
 from qiqc.models import BinaryClassifier
 
@@ -44,22 +45,15 @@ class Encoder(nn.Module):
         super().__init__()
         self.embedding = embedding
         self.dropout = nn.Dropout(config['embed']['dropout'])
-        self.encoder = nn.LSTM(
-            input_size=config['embed']['n_embed'],
-            hidden_size=config['encoder']['n_hidden'],
-            num_layers=config['encoder']['n_layers'],
-            dropout=config['encoder']['dropout'],
-            bidirectional=True,
-            batch_first=True,
-        )
+        self.encoder = build_encoder(
+            config['encoder']['name'])(config['encoder'])
         self.aggregator = build_aggregator(
-            config['encoder']['aggregator'],
-        )
+            config['encoder']['aggregator'])
 
     def forward(self, X, mask):
         h = self.embedding(X)
         h = self.dropout(h)
-        h, _ = self.encoder(h)
+        h = self.encoder(h)
         h = self.aggregator(h, mask)
         return h
 

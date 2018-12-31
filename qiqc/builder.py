@@ -5,6 +5,8 @@ from qiqc.models.aggregator.pooling import AvgPoolingAggregator
 from qiqc.models.aggregator.pooling import MaxPoolingAggregator
 from qiqc.models.aggregator.pooling import SumPoolingAggregator
 from qiqc.models.aggregator.state import BiRNNLastStateAggregator
+from qiqc.models.encoder.rnn import LSTMEncoder
+from qiqc.models.encoder.rnn import LSTMGRUEncoder
 from qiqc.models.ensembler.simple import AverageEnsembler
 from qiqc.models.ensembler.stacking import LinearEnsembler
 from qiqc.models.ensembler.stacking import MLPEnsembler
@@ -38,6 +40,10 @@ tokenizers = {
     'space': str.split,
     'word_tokenize': nltk.word_tokenize,
 }
+encoders = {
+    'lstm': LSTMEncoder,
+    'lstmgru': LSTMGRUEncoder,
+}
 ensemblers = {
     'avg': AverageEnsembler,
     'linear': LinearEnsembler,
@@ -65,6 +71,10 @@ def build_preprocessor(names):
 
 def build_tokenizer(name):
     return tokenizers[name]
+
+
+def build_encoder(name):
+    return encoders[name]
 
 
 def build_ensembler(name):
