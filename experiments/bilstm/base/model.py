@@ -4,23 +4,36 @@ from torch import nn
 
 from qiqc.builder import build_aggregator
 from qiqc.builder import build_encoder
+from qiqc.embeddings import build_word_vectors
 from qiqc.models import EmbeddingUnit
 from qiqc.models import BinaryClassifier
 
 
-def build_sampler(i, epoch, weights):
-    sampler = None
-    # if epoch % 2 == 0:
-    #     sampler = torch.utils.data.WeightedRandomSampler(
-    #         weights=weights, num_samples=len(weights), replacement=True)
-    # else:
-    #     sampler = None
-    return sampler
+def build_models(config, word_freq, token2id, pretrained_vectors):
+    models = []
+    for i in range(config['cv']):
+        embedding, unk_freq = build_embedding(
+            config, word_freq, token2id, pretrained_vectors)
+        model = build_model(config, embedding)
+        models.append(model)
+    return models, unk_freq
 
 
-def build_embedding(
-        i, config, tokens, unk_freq, token2id, initial_vectors):
-    assert isinstance(initial_vectors, np.ndarray)
+def build_model(config, embedding):
+    encoder = Encoder(config['model'], embedding)
+    clf = BinaryClassifier(config['model'], encoder)
+    return clf
+
+
+def build_embedding(config, word_freq, token2id, pretrained_vectors):
+    initial_vectors, unk_freqs = [], []
+    for name, _pretrained_vectors in pretrained_vectors.items():
+        vec, known_freq, unk_freq = build_word_vectors(
+            word_freq, _pretrained_vectors, config['vocab']['min_count'])
+        initial_vectors.append(vec)
+        unk_freqs.append(unk_freq)
+    initial_vectors = np.array(initial_vectors).mean(axis=0)
+
     if config['embedding']['finetune']:
         unfixed_tokens = set([token for token, freq in unk_freq.items()
                              if freq >= config['vocab']['min_count']])
@@ -36,7 +49,7 @@ def build_embedding(
     else:
         embed = nn.Embedding.from_pretrained(
             torch.Tensor(initial_vectors), freeze=True)
-    return embed
+    return embed, unk_freq
 
 
 class Encoder(nn.Module):
@@ -56,9 +69,3 @@ class Encoder(nn.Module):
         h = self.encoder(h)
         h = self.aggregator(h, mask)
         return h
-
-
-def build_model(i, config, embedding):
-    encoder = Encoder(config['model'], embedding)
-    clf = BinaryClassifier(config['model'], encoder)
-    return clf

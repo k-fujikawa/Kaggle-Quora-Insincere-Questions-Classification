@@ -18,7 +18,6 @@ from qiqc.builder import build_tokenizer
 from qiqc.builder import build_ensembler
 from qiqc.builder import build_optimizer
 from qiqc.datasets import load_qiqc
-from qiqc.embeddings import build_word_vectors
 from qiqc.embeddings import load_pretrained_vectors
 from qiqc.model_selection import classification_metrics, ClassificationResult
 from qiqc.utils import pad_sequence, set_seed
@@ -62,9 +61,7 @@ def main(args=None):
 
 def train(config):
     modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
-    build_embedding = modelconf.build_embedding
-    build_model = modelconf.build_model
-    build_sampler = modelconf.build_sampler
+    build_models = modelconf.build_models
 
     print(config)
     start = time.time()
@@ -107,25 +104,6 @@ def train(config):
         train_df['token_id'] = train_df.token_ids.apply(replace_to_los)
         submit_df['token_id'] = submit_df.token_ids.apply(replace_to_los)
 
-    print('Load pretrained vectors...')
-    pretrained_vectors = load_pretrained_vectors(
-        config['embedding']['src'], token2id, test=config['test'])
-    qiqc_vectors, known_freqs, unk_freqs = [], [], []
-    for name, _pretrained_vectors in pretrained_vectors.items():
-        vec, known_freq, unk_freq = build_word_vectors(
-            word_freq, _pretrained_vectors, config['vocab']['min_count'])
-        ex = list(unk_freq.items())[config["maxlen"] + 1:config["maxlen"] + 11]
-        print(f'UNK of {name}: {len(unk_freq)} / {len(word_freq)}'
-              f' ({100 * len(unk_freq) / len(word_freq):.2f} %)')
-        print(f'    ex. {ex}')
-        qiqc_vectors.append(vec)
-        known_freqs.append(known_freq)
-        unk_freqs.append(unk_freq)
-    qiqc_vectors = np.array(qiqc_vectors).mean(axis=0)
-    unk_tokens = set.intersection(*[set(fq.keys()) for fq in unk_freqs])
-    unk_freq = dict([(token, freq) for token, freq
-                     in word_freq.items() if token in unk_tokens])
-
     # Train : Test split for holdout training
     if config['holdout']:
         train_df, test_df = sklearn.model_selection.train_test_split(
@@ -147,6 +125,13 @@ def train(config):
     print('Start training...')
     splitter = sklearn.model_selection.StratifiedKFold(
         n_splits=config['cv'], shuffle=True, random_state=config['seed'])
+
+    print('Load pretrained vectors and build models...')
+    pretrained_vectors = load_pretrained_vectors(
+        config['embedding']['src'], token2id, test=config['test'])
+
+    models, unk_freq = build_models(
+        config, word_freq, token2id, pretrained_vectors)
     train_results, valid_results = [], []
     best_models = {}
     for i_cv, (train_indices, valid_indices) in enumerate(
@@ -168,9 +153,7 @@ def train(config):
         valid_iter = DataLoader(
             valid_dataset, batch_size=config['batchsize_valid'])
 
-        embedding = build_embedding(
-            i_cv, config, tokens, unk_freq, token2id, qiqc_vectors)
-        model = build_model(i_cv, config, embedding)
+        model = models.pop(0)
         model = model.to_device(config['device'])
         optimizer = build_optimizer(config['optimizer'], model)
         train_result = ClassificationResult('train', config['outdir'])
@@ -178,8 +161,7 @@ def train(config):
 
         for epoch in range(config['epochs']):
             epoch_start = time.time()
-            sampler = build_sampler(
-                i_cv, epoch, train_df.weights[train_indices].values)
+            sampler = None
             train_iter = DataLoader(
                 train_dataset, sampler=sampler, drop_last=True,
                 batch_size=config['batchsize'], shuffle=sampler is None)
