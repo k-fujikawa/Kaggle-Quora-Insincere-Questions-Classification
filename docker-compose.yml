@@ -30,7 +30,7 @@ services:
     ports:
       - "${TFPORT:-9999}:${TFPORT:-9999}"
     volumes:
-      - ${LOGDIR:-./experiments}:/tflog
+      - ${LOGDIR:-./results}:/tflog
     command:
       bash -c "
       tensorboard --port ${TFPORT:-9999} --logdir /tflog

@@ -153,8 +153,10 @@ def train(config):
         model = models.pop(0)
         model = model.to_device(config['device'])
         optimizer = build_optimizer(config['optimizer'], model)
-        train_result = ClassificationResult('train', config['outdir'])
-        valid_result = ClassificationResult('valid', config['outdir'])
+        train_result = ClassificationResult(
+            'train', config['outdir'], str(i_cv))
+        valid_result = ClassificationResult(
+            'valid', config['outdir'], str(i_cv))
 
         for epoch in range(config['epochs']):
             epoch_start = time.time()
@@ -164,7 +166,8 @@ def train(config):
                 batch_size=config['batchsize'], shuffle=sampler is None)
 
             # Training loop
-            for batch in tqdm(train_iter, desc='train', leave=False):
+            for i, batch in enumerate(
+                    tqdm(train_iter, desc='train', leave=False)):
                 model.train()
                 optimizer.zero_grad()
                 loss, output = model.calc_loss(*batch)
@@ -174,7 +177,8 @@ def train(config):
             train_result.calc_score(epoch)
 
             # Validation loop
-            for batch in tqdm(valid_iter, desc='valid', leave=False):
+            for i, batch in enumerate(
+                    tqdm(valid_iter, desc='valid', leave=False)):
                 model.eval()
                 loss, output = model.calc_loss(*batch)
                 valid_result.add_record(**output)

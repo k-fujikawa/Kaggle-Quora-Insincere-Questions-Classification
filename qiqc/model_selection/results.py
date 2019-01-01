@@ -13,6 +13,8 @@ def classification_metrics(ys, ts):
         # Search optimal threshold
         precs, recs, thresholds = metrics.precision_recall_curve(ts, ys)
         thresholds = np.append(thresholds, 1.001)
+        idx = (precs != 0) * (recs != 0)
+        precs, recs, thresholds = precs[idx], recs[idx], thresholds[idx]
         fbetas = 2 / (1 / precs + 1 / recs)
         best_idx = np.argmax(fbetas)
         threshold = thresholds[best_idx]
@@ -32,12 +34,14 @@ def classification_metrics(ys, ts):
 
 class ClassificationResult(object):
 
-    def __init__(self, name, outdir=None, main_metrics='fbeta'):
+    def __init__(self, name, outdir=None, postfix=None, main_metrics='fbeta'):
         self.initialize()
         self.name = name
+        self.postfix = postfix
         self.outdir = outdir
         self.summary = None
         self.main_metrics = main_metrics
+        self.n_trained = 0
         if outdir is not None:
             self.writer = SummaryWriter(str(outdir))
 
@@ -50,6 +54,10 @@ class ClassificationResult(object):
         self.losses.append(loss)
         self.ys.append(y)
         self.ts.append(t)
+        self.n_trained += len(y)
+        if self.outdir is not None:
+            self.writer.add_scalar(
+                f'{self.name}/loss/{self.postfix}', loss, self.n_trained)
 
     def calc_score(self, epoch):
         loss = np.array(self.losses).mean()
@@ -57,7 +65,6 @@ class ClassificationResult(object):
         summary = dict(name=self.name, loss=loss, **score)
         if len(score) > 0:
             if self.summary is None:
-
                 self.summary = pd.DataFrame([summary], index=[epoch])
                 self.summary.index.name = 'epoch'
             else:
