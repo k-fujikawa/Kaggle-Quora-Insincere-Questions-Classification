@@ -1,6 +1,6 @@
 batchsize: 512
 batchsize_valid: 1024
-seed: 0
+seed: 1029
 epochs: 5
 maxlen: 72
 logging: True
@@ -43,7 +43,7 @@ model:
   encoder:
     name: lstm
     bidirectional: True
-    dropout: 0.2
+    dropout: 0
     n_input: 300
     n_hidden: 128
     n_layers: 2
