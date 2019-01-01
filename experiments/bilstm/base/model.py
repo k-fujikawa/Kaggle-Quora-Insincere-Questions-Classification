@@ -11,17 +11,19 @@ from qiqc.models import BinaryClassifier
 
 def build_models(config, word_freq, token2id, pretrained_vectors):
     models = []
+    pos_weight = torch.FloatTensor([config['pos_weight']]).to(config['device'])
     for i in range(config['cv']):
         embedding, unk_freq = build_embedding(
             config, word_freq, token2id, pretrained_vectors)
-        model = build_model(config, embedding)
+        lossfunc = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        model = build_model(config, embedding, lossfunc)
         models.append(model)
     return models, unk_freq
 
 
-def build_model(config, embedding):
+def build_model(config, embedding, lossfunc):
     encoder = Encoder(config['model'], embedding)
-    clf = BinaryClassifier(config['model'], encoder)
+    clf = BinaryClassifier(config['model'], encoder, lossfunc)
     return clf
 
 

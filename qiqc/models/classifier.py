@@ -6,7 +6,7 @@ from qiqc.models.fc.mlp import MLP
 
 class BinaryClassifier(nn.Module):
 
-    def __init__(self, config, encoder):
+    def __init__(self, config, encoder, lossfunc):
         super().__init__()
         self.encoder = encoder
         self.n_hidden = config['mlp']['n_hidden']
@@ -23,7 +23,7 @@ class BinaryClassifier(nn.Module):
             dropout=config['mlp']['dropout'],
         )
         self.out = nn.Linear(config['mlp']['n_hidden'], 1)
-        self.lossfunc = nn.BCEWithLogitsLoss()
+        self.lossfunc = lossfunc
 
     def calc_loss(self, X, t, W=None):
         y = self.forward(X)
