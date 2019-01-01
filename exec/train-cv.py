@@ -28,9 +28,7 @@ def main(args=None):
     parser.add_argument('--modeldir', '-m', type=Path, required=True)
     parser.add_argument('--device', '-g', type=int)
     parser.add_argument('--test', action='store_true')
-    parser.add_argument('--epochs', '-e', type=int, default=4)
     parser.add_argument('--outdir', '-o', type=str, default='test')
-    parser.add_argument('--batchsize', '-b', type=int, default=512)
     parser.add_argument('--optuna-trials', type=int)
     parser.add_argument('--gridsearch', action='store_true')
     parser.add_argument('--cv', type=int, default=5)
@@ -122,16 +120,15 @@ def train(config):
     submit_X = torch.Tensor(submit_df.token_ids).type(torch.long)
     submit_X = submit_X.to(config['device'])
 
-    print('Start training...')
-    splitter = sklearn.model_selection.StratifiedKFold(
-        n_splits=config['cv'], shuffle=True, random_state=config['seed'])
-
     print('Load pretrained vectors and build models...')
     pretrained_vectors = load_pretrained_vectors(
         config['embedding']['src'], token2id, test=config['test'])
-
     models, unk_freq = build_models(
         config, word_freq, token2id, pretrained_vectors)
+
+    print('Start training...')
+    splitter = sklearn.model_selection.StratifiedKFold(
+        n_splits=config['cv'], shuffle=True, random_state=config['seed'])
     train_results, valid_results = [], []
     best_models = {}
     for i_cv, (train_indices, valid_indices) in enumerate(
