@@ -17,7 +17,10 @@ class BinaryClassifier(nn.Module):
             in_size=in_size,
             out_size=config['mlp']['n_hidden'],
             actfun=nn.ReLU(True),
+            bn0=config['mlp']['bn0'],
             bn=config['mlp']['bn'],
+            dropout0=config['mlp']['dropout0'],
+            dropout=config['mlp']['dropout'],
         )
         self.out = nn.Linear(config['mlp']['n_hidden'], 1)
         self.lossfunc = nn.BCEWithLogitsLoss()
