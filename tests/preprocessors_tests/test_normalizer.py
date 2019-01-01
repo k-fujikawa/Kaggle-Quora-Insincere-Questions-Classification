@@ -3,10 +3,10 @@ from unittest import TestCase
 import qiqc.preprocessors as QP
 
 
-class TestSpacingPunctReplacer(TestCase):
+class TestPunctSpacer(TestCase):
 
     def test_call(self):
-        replacer = QP.SpacingPunctReplacer()
+        replacer = QP.PunctSpacer()
         old = 'This is, a pen.(aa)'
         new = 'This is ,  a pen .  ( aa ) '
         self.assertEqual(new, replacer(old))
@@ -21,10 +21,9 @@ class TestNumberReplacer(TestCase):
         self.assertEqual(new, replacer(old))
 
 
-class TestHengZhengMispellReplacer(TestCase):
+class TestMisspellReplacer(TestCase):
 
     def test_call(self):
-        replacer = QP.HengZhengMispellReplacer()
-        old = "I can't play tennis."
-        new = "I cannot play tennis."
-        self.assertEqual(new, replacer(old))
+        replacer = QP.MisspellReplacer()
+        for old, new in replacer.rule.items():
+            self.assertEqual(new, replacer(old))
