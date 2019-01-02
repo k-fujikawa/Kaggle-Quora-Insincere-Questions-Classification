@@ -1,11 +1,30 @@
 import math
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Attention(nn.Module):
+class StandAloneLinearAttention(nn.Module):
+
+    def __init__(self, n_input):
+        super().__init__()
+        self.linear = nn.Linear(n_input, 1)
+
+    def forward(self, h, mask):
+        batchsize, maxlen, n_input = h.shape
+        h_flatten = h.contiguous().view(-1, n_input)
+        scores = self.linear(h_flatten)
+        fill_value = torch.full(scores.shape, -np.inf).to(h.device)
+        scores = torch.where(mask.contiguous().view(-1, 1), scores, fill_value)
+        p_attn = F.softmax(scores.view(batchsize, maxlen, 1))
+        h = h * p_attn
+
+        return h * p_attn
+
+
+class PairwiseDotAttention(nn.Module):
     """
     Compute 'Scaled Dot Product Attention
     """
@@ -41,7 +60,7 @@ class MultiHeadedAttention(nn.Module):
         self.linear_layers = nn.ModuleList(
             [nn.Linear(d_model, d_model) for _ in range(3)])
         self.output_linear = nn.Linear(d_model, d_model)
-        self.attention = Attention()
+        self.attention = PairwiseDotAttention()
 
         self.dropout = nn.Dropout(p=dropout)
 

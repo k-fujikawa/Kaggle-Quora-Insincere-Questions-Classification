@@ -5,6 +5,7 @@ from qiqc.models.aggregator.pooling import AvgPoolingAggregator
 from qiqc.models.aggregator.pooling import MaxPoolingAggregator
 from qiqc.models.aggregator.pooling import SumPoolingAggregator
 from qiqc.models.aggregator.state import BiRNNLastStateAggregator
+from qiqc.models.encoder.attention import StandAloneLinearAttention
 from qiqc.models.encoder.rnn import LSTMEncoder
 from qiqc.models.encoder.rnn import LSTMGRUEncoder
 from qiqc.models.ensembler.simple import AverageEnsembler
@@ -56,6 +57,13 @@ optimizers = {
 schedulers = {
     'ReduceLROnPlateau': torch.optim.lr_scheduler.ReduceLROnPlateau
 }
+attentions = {
+    'standalone': StandAloneLinearAttention
+}
+
+
+def build_attention(name):
+    return attentions[name]
 
 
 def build_aggregator(name):
