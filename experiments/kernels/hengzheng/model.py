@@ -2,26 +2,52 @@ import torch
 import numpy as np
 from torch import nn
 
-from qiqc.models import Word2VecEx
+from qiqc.embeddings import build_word_vectors
+from qiqc.models import EmbeddingUnit
 
 
-def build_sampler(i, epoch, weights):
-    return None
+def build_models(config, word_freq, token2id, pretrained_vectors):
+    models = []
+    pos_weight = torch.FloatTensor([config['pos_weight']]).to(config['device'])
+    for i in range(config['cv']):
+        embedding, unk_freq = build_embedding(
+            config, word_freq, token2id, pretrained_vectors)
+        lossfunc = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+        model = build_model(config, embedding, lossfunc)
+        models.append(model)
+    return models, unk_freq
 
-    
-def build_embedding(
-        i, config, tokens, word_freq, token2id, pretrained_vectors):
-    assert isinstance(pretrained_vectors, np.ndarray)
-    # Fine tuning embedding
-    model = Word2VecEx(**config['embedding']['params'])
-    model.build_vocab_from_freq(word_freq)
-    model.wv.vectors[:] = pretrained_vectors
+
+def build_model(config, embedding, lossfunc):
+    clf = NeuralNet(embedding)
+    return clf
+
+
+def build_embedding(config, word_freq, token2id, pretrained_vectors):
+    initial_vectors, unk_freqs = [], []
+    for name, _pretrained_vectors in pretrained_vectors.items():
+        vec, known_freq, unk_freq = build_word_vectors(
+            word_freq, _pretrained_vectors, config['vocab']['min_count'])
+        initial_vectors.append(vec)
+        unk_freqs.append(unk_freq)
+    initial_vectors = np.array(initial_vectors).mean(axis=0)
+
     if config['embedding']['finetune']:
-        model.train(tokens, total_examples=len(tokens), epochs=1)
-    mat = model.build_embedding_matrix(
-        token2id, standardize=config['embedding']['standardize'])
-
-    return mat
+        unfixed_tokens = set([token for token, freq in unk_freq.items()
+                             if freq >= config['vocab']['min_count']])
+        fixed_idxmap = [idx if token not in unfixed_tokens else 0
+                        for token, idx in token2id.items()]
+        unfixed_idxmap = [idx if token in unfixed_tokens else 0
+                          for token, idx in token2id.items()]
+        fixed_embedding = nn.Embedding.from_pretrained(
+            torch.Tensor(initial_vectors[fixed_idxmap]), freeze=True)
+        unfixed_embedding = nn.Embedding.from_pretrained(
+            torch.Tensor(initial_vectors[unfixed_idxmap]), freeze=False)
+        embed = EmbeddingUnit(fixed_embedding, unfixed_embedding)
+    else:
+        embed = nn.Embedding.from_pretrained(
+            torch.Tensor(initial_vectors), freeze=True)
+    return embed, unk_freq
 
 
 class Attention(nn.Module):
@@ -67,18 +93,14 @@ class Attention(nn.Module):
 
 
 class NeuralNet(nn.Module):
-    def __init__(self, embedding_matrix):
+    def __init__(self, embedding):
         super(NeuralNet, self).__init__()
 
         hidden_size = 60
         embed_size = 300
-        max_features = 95000
         maxlen = 72
 
-        self.embedding = nn.Embedding(max_features, embed_size)
-        self.embedding.weight = nn.Parameter(
-            torch.tensor(embedding_matrix, dtype=torch.float32))
-        self.embedding.weight.requires_grad = False
+        self.embedding = embedding
 
         self.embedding_dropout = nn.Dropout2d(0.1)
         self.lstm = nn.LSTM(
@@ -135,14 +157,3 @@ class NeuralNet(nn.Module):
         self.device = device
         self.to(device)
         return self
-
-
-def build_model(i, config, embedding_matrix):
-    clf = NeuralNet(embedding_matrix)
-    return clf
-
-
-def build_optimizer(i, config, model):
-    optimizer = torch.optim.Adam(
-        model.parameters(), lr=float(config['optimizer']['lr']))
-    return optimizer
