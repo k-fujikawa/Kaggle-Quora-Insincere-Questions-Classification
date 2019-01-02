@@ -17,7 +17,7 @@ preprocessors:
 tokenizer: space
 embedding:
   add_los:
-    True
+    False
   finetune:
     False
   src:
@@ -55,6 +55,7 @@ model:
     n_layers: 2
     out_scale: 2
     aggregator: max
+    attention: standalone
   mlp:
     bn0: True
     bn: True

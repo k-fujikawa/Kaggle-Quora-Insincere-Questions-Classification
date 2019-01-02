@@ -2,6 +2,7 @@ import torch
 import numpy as np
 from torch import nn
 
+from qiqc.builder import build_attention
 from qiqc.builder import build_aggregator
 from qiqc.builder import build_encoder
 from qiqc.embeddings import build_word_vectors
@@ -64,10 +65,16 @@ class Encoder(nn.Module):
             config['encoder']['name'])(config['encoder'])
         self.aggregator = build_aggregator(
             config['encoder']['aggregator'])
+        self.attn = None
+        if config['encoder'].get('attention') is not None:
+            self.attn = build_attention(config['encoder']['attention'])(
+                config['encoder']['n_hidden'] * config['encoder']['out_scale'])
 
     def forward(self, X, mask):
         h = self.embedding(X)
         h = self.dropout(h)
-        h = self.encoder(h)
+        h = self.encoder(h, mask)
+        if self.attn is not None:
+            h = self.attn(h, mask)
         h = self.aggregator(h, mask)
         return h

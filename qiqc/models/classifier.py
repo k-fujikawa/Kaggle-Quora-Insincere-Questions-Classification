@@ -55,7 +55,6 @@ class BinaryClassifier(nn.Module):
         maxlen = (mask == 1).any(dim=0).sum()
         X = X[:, :maxlen]
         mask = mask[:, :maxlen]
-
         h = self.encoder(X, mask)
         h = self.mlp(h)
         return h
