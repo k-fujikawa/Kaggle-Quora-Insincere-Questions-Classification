@@ -18,7 +18,7 @@ class StandAloneLinearAttention(nn.Module):
         scores = self.linear(h_flatten)
         fill_value = torch.full(scores.shape, -np.inf).to(h.device)
         scores = torch.where(mask.contiguous().view(-1, 1), scores, fill_value)
-        p_attn = F.softmax(scores.view(batchsize, maxlen, 1))
+        p_attn = F.softmax(scores.view(batchsize, maxlen, 1), dim=1)
         h = h * p_attn
 
         return h * p_attn

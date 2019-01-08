@@ -19,7 +19,7 @@ embedding:
   add_los:
     False
   finetune:
-    False
+    True
   src:
     - glove
     - paragram
