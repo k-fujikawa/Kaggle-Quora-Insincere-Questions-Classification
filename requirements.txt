@@ -8,6 +8,7 @@ pandas
 scikit-learn
 tensorboardX
 optuna
+lightgbm
 
 # Jupyter packages
 jupyterlab

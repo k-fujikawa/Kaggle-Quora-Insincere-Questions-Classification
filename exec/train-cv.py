@@ -73,20 +73,16 @@ def train(config):
         lambda x: tokenizer(preprocessor(x)))
     submit_df['tokens'] = submit_df.question_text.apply(
         lambda x: tokenizer(preprocessor(x)))
-    tokens = train_df.tokens.append(submit_df.tokens).values
+    all_df = pd.concat([train_df, submit_df], ignore_index=True, sort=False)
 
     print('Build vocabulary...')
-    vocab = Dictionary(tokens, prune_at=None)
+    vocab = Dictionary(all_df.tokens.values, prune_at=None)
     dfs = sorted(vocab.dfs.items(), key=lambda x: x[1], reverse=True)
     token2id = dict(
         **{'<PAD>': 0},
-        **dict([(f'<{i}>', i) for i in range(1, config['maxlen'] + 1)]),
-        **dict([(vocab[idx], i + config['maxlen'] + 1)
-                for i, (idx, freq) in enumerate(dfs)]))
+        **dict([(vocab[idx], i + 1) for i, (idx, freq) in enumerate(dfs)]))
     word_freq = dict(
-        **{'<PAD>': 0},
-        **dict([(f'<{i}>', config['vocab']['min_count'])
-                for i in range(1, config['maxlen'] + 1)]),
+        **{'<PAD>': 1},
         **dict([(vocab[idx], freq) for idx, freq in dfs]))
     assert token2id['<PAD>'] == 0
 
@@ -94,13 +90,6 @@ def train(config):
         lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
     submit_df['token_ids'] = submit_df.tokens.apply(
         lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
-    if config['embedding']['add_los']:
-        def replace_to_los(x):
-            length = (x != 0).sum()
-            x[min(length, config['maxlen']) - 1] = length
-            return x
-        train_df['token_id'] = train_df.token_ids.apply(replace_to_los)
-        submit_df['token_id'] = submit_df.token_ids.apply(replace_to_los)
 
     # Train : Test split for holdout training
     if config['holdout']:
@@ -124,7 +113,7 @@ def train(config):
     pretrained_vectors = load_pretrained_vectors(
         config['embedding']['src'], token2id, test=config['test'])
     models, unk_freq = build_models(
-        config, word_freq, token2id, pretrained_vectors)
+        config, word_freq, token2id, pretrained_vectors, all_df)
 
     print('Start training...')
     splitter = sklearn.model_selection.StratifiedKFold(
