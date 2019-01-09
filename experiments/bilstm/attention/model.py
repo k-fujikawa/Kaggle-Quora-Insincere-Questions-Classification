@@ -9,7 +9,7 @@ from qiqc.builder import build_aggregator
 from qiqc.builder import build_encoder
 from qiqc.embeddings import build_word_vectors
 from qiqc.models import BinaryClassifier
-from qiqc.models import TransformerEncoder
+from qiqc.models import MultiHeadSelfAttention
 
 
 def build_models(config, word_freq, token2id, pretrained_vectors, all_df):
@@ -65,9 +65,9 @@ class Encoder(nn.Module):
             config['encoder']['name'])(config['encoder'])
         self.aggregator = build_aggregator(
             config['encoder']['aggregator'])
-        self.attn = TransformerEncoder(
-            n_layers=1, in_size=config['encoder']['n_hidden'] * 2,
-            out_size=config['encoder']['n_hidden'], attn_heads=4, dropout=0.2)
+        self.attn = MultiHeadSelfAttention(
+            attn_heads=4, in_size=config['encoder']['n_hidden'] * 2,
+            out_size=config['encoder']['n_hidden'], dropout=0.)
 
     def forward(self, X, mask):
         h = self.embedding(X)

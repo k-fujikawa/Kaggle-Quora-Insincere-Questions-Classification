@@ -17,7 +17,8 @@ class RNNEncoderBase(nn.Module):
                 bidirectional=config['bidirectional'],
                 batch_first=True,
             )
-            input_size = config['out_scale'] * config['n_hidden']
+            n_direction = int(config['bidirectional']) + 1
+            input_size = n_direction * config['n_hidden']
             rnns.append(rnn)
         self.rnns = nn.ModuleList(rnns)
 

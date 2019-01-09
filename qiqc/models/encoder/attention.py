@@ -44,32 +44,39 @@ class PairwiseDotAttention(nn.Module):
         return torch.matmul(p_attn, value), p_attn
 
 
-class MultiHeadedAttention(nn.Module):
+class MultiHeadAttention(nn.Module):
     """
     Take in model size and number of heads.
     """
 
-    def __init__(self, h, d_model, dropout=0.1):
+    def __init__(self, attn_heads, in_size, out_size, dropout=0.):
         super().__init__()
-        assert d_model % h == 0
+        assert out_size % attn_heads == 0
 
         # We assume d_v always equals d_k
-        self.d_k = d_model // h
-        self.h = h
+        self.out_size_child = out_size // attn_heads
+        self.attn_heads = attn_heads
 
         self.linear_layers = nn.ModuleList(
-            [nn.Linear(d_model, d_model) for _ in range(3)])
-        self.output_linear = nn.Linear(d_model, d_model)
+            [nn.Linear(in_size, out_size) for _ in range(3)])
+        self.output_linear = nn.Linear(out_size, out_size)
         self.attention = PairwiseDotAttention()
 
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, query, key, value, mask=None):
-        batch_size = query.size(0)
+        if len(mask.shape) == 2:
+            batchsize, maxlen = mask.shape
+            mask = mask.unsqueeze(1).repeat(1, maxlen, 1).unsqueeze(1)
+        elif len(mask.shape) == 4:
+            batchsize, _, maxlen, maxlen = mask.shape
+        else:
+            raise ValueError
 
-        # 1) Do all the linear projections in batch from d_model => h x d_k
+        # 1) Do all the linear projections in batch from out_size => h x d_k
         query, key, value = [
-            l(x).view(batch_size, -1, self.h, self.d_k).transpose(1, 2)
+            l(x).view(batchsize, maxlen, self.attn_heads, self.out_size_child)\
+                .transpose(1, 2)
             for l, x in zip(self.linear_layers, (query, key, value))]
 
         # 2) Apply attention on all the projected vectors in batch.
@@ -78,6 +85,12 @@ class MultiHeadedAttention(nn.Module):
 
         # 3) "Concat" using a view and apply a final linear.
         x = x.transpose(1, 2).contiguous().view(
-            batch_size, -1, self.h * self.d_k)
+            batchsize, -1, self.attn_heads * self.out_size_child)
 
         return self.output_linear(x)
+
+
+class MultiHeadSelfAttention(MultiHeadAttention):
+
+    def forward(self, h, mask):
+        return super().forward(h, h, h, mask=mask)

@@ -3,7 +3,7 @@ import math
 import torch
 import torch.nn as nn
 
-from .attention import MultiHeadedAttention
+from .attention import MultiHeadAttention
 
 
 class TransformerEncoder(nn.Module):
@@ -42,7 +42,7 @@ class TransformerBlock(nn.Module):
         """
 
         super().__init__()
-        self.attention = MultiHeadedAttention(
+        self.attention = MultiHeadAttention(
             h=attn_heads, d_model=hidden)
         self.feed_forward = PositionwiseFeedForward(
             d_model=hidden, d_ff=feed_forward_hidden, dropout=dropout)
