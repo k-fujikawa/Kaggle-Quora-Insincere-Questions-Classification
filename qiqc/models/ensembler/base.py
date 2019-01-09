@@ -11,6 +11,12 @@ from qiqc.model_selection import classification_metrics
 
 class BaseEnsembler(metaclass=ABCMeta):
 
+    def __init__(self, config, models, results):
+        super().__init__()
+        self.config = config
+        self.models = models
+        self.results = results
+
     @abstractmethod
     def fit(self, X, t, test_size=0.1):
         pass
@@ -26,26 +32,26 @@ class BaseEnsembler(metaclass=ABCMeta):
 
 class BaseStackingEnsembler(BaseEnsembler, nn.Module):
 
-    def __init__(self, config, models, results, predictor, lossfunc):
-        super().__init__()
-        self.config = config
-        self.models = models
-        self.results = results
-        self.device = config['device']
-        self.batchsize_train = config['batchsize']
-        self.batchsize_valid = config['batchsize_valid']
-        self.epochs = config['ensembler']['epochs']
-        self.predictor = predictor
-        self.lossfunc = lossfunc
-
     @abstractmethod
     def predict_features(self, X):
         pass
 
-    def fit(self, X, t, test_size=0.1):
+    def build_feature(self, X):
         # Build dataset with predicted values
-        X = X.to(self.device)
-        X_iter = DataLoader(X, batch_size=self.batchsize_valid, shuffle=False)
+        X = X.to(self.config['device'])
+        X_iter = DataLoader(
+            X, batch_size=self.config['batchsize_valid'], shuffle=False)
+        ys = []
+        for batch in tqdm(X_iter, desc='ensemble/preprocess', leave=False):
+            ys.append(self.predict_features(batch))
+        return np.concatenate(ys)
+
+    def fit(self, X, t, test_size=0.1):
+        X = torch.Tensor(self.build_feature(X))
+        # Build dataset with predicted values
+        X = X.to(self.config['device'])
+        X_iter = DataLoader(
+            X, batch_size=config['batchsize_valid'], shuffle=False)
         ys = []
         for batch in tqdm(X_iter, desc='ensemble/preprocess', leave=False):
             ys.append(self.predict_features(batch))
@@ -56,16 +62,16 @@ class BaseStackingEnsembler(BaseEnsembler, nn.Module):
         train_indices = np.random.permutation(range(len(X)))[n_tests:]
         test_indices = np.random.permutation(range(len(X)))[:n_tests]
 
-        train_X = X[train_indices].to(self.device)
-        train_t = t[train_indices].to(self.device)
+        train_X = X[train_indices].to(self.config['device'])
+        train_t = t[train_indices].to(self.config['device'])
         train_dataset = torch.utils.data.TensorDataset(train_X, train_t)
         train_iter = DataLoader(
-            train_dataset, batch_size=self.batchsize_valid,
+            train_dataset, batch_size=self.config['batchsize_valid'],
             drop_last=True, shuffle=True)
-        model = self.predictor.to(self.device)
+        model = self.predictor.to(self.config['device'])
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-        for epoch in range(self.epochs):
+        for epoch in range(self.config['epochs']):
             for batch in tqdm(train_iter, desc='ensemble/train', leave=False):
                 batch_X, batch_t = batch
                 model.train()
@@ -74,10 +80,10 @@ class BaseStackingEnsembler(BaseEnsembler, nn.Module):
                 loss.backward()
                 optimizer.step()
 
-        test_X = X[test_indices].to(self.device)
+        test_X = X[test_indices].to(self.config['device'])
         test_t = t[test_indices].numpy()
         test_iter = DataLoader(
-            test_X, batch_size=self.batchsize_valid, shuffle=False)
+            test_X, batch_size=self.config['batchsize_valid'], shuffle=False)
 
         # Evaluate ensemble results and decide threshold
         ys = []
@@ -92,14 +98,14 @@ class BaseStackingEnsembler(BaseEnsembler, nn.Module):
         return y, test_indices, metrics
 
     def predict_proba(self, X):
-        pred_X = X.to(self.device)
+        pred_X = X.to(self.config['device'])
         iterator = DataLoader(
-            pred_X, batch_size=self.batchsize_valid, shuffle=False)
+            pred_X, batch_size=self.config['batchsize_valid'], shuffle=False)
         ys = []
         for batch in tqdm(iterator, desc='submit', leave=False):
             self.predictor.eval()
             _X = self.predict_features(batch)
-            _X = torch.Tensor(_X).to(self.device)
+            _X = torch.Tensor(_X).to(self.config['device'])
             y = self.predictor(_X)
             y = torch.sigmoid(y).cpu().detach().numpy()
             ys.append(y)

@@ -64,10 +64,16 @@ model:
     n_layers: 2
     n_hidden: 128
 ensembler:
-  model: avg
+  model: lgbm
   test_size: 0.1
   epochs: 1
   params:
-    bn: True
-    n_layers: 2
-    n_hidden: 128
+    objective: binary
+    min_data_in_leaf: 200
+    learning_rate: 0.01
+    feature_fraction: 0.8
+    bagging_fraction: 0.85
+    bagging_freq: 3
+    metric: 'auc'
+    num_threads: 4
+    scale_pos_weight: 15.5

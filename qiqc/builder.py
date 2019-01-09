@@ -11,6 +11,7 @@ from qiqc.models.encoder.rnn import LSTMGRUEncoder
 from qiqc.models.ensembler.simple import AverageEnsembler
 from qiqc.models.ensembler.stacking import LinearEnsembler
 from qiqc.models.ensembler.stacking import MLPEnsembler
+from qiqc.models.ensembler.stacking import LGBMEnsembler
 
 from qiqc.preprocessors.pipeline import PreprocessPipeline
 from qiqc.preprocessors.normalizer import PunctSpacer
@@ -49,6 +50,7 @@ ensemblers = {
     'avg': AverageEnsembler,
     'linear': LinearEnsembler,
     'mlp': MLPEnsembler,
+    'lgbm': LGBMEnsembler,
 }
 optimizers = {
     'adam': torch.optim.Adam,
