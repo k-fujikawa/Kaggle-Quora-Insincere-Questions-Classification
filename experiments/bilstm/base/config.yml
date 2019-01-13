@@ -16,9 +16,9 @@ preprocessors:
   - number+underscore
 tokenizer: space
 embedding:
-  add_los:
-    False
   finetune:
+    True
+  assign_noise:
     True
   src:
     - glove
@@ -36,8 +36,6 @@ optimizer:
   name: adam
   params:
     lr: 0.001
-  scheduler:
-    ReduceLROnPlateau
 model:
   embed:
     n_embed: 300
@@ -45,7 +43,8 @@ model:
     position: false
     n_hidden: 0
     hidden_bn: False
-    dropout: 0.2
+    dropout1d: 0.1
+    dropout2d: 0.1
   encoder:
     name: lstm
     bidirectional: True

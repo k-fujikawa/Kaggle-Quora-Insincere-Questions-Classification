@@ -112,7 +112,7 @@ def train(config):
     print('Load pretrained vectors and build models...')
     pretrained_vectors = load_pretrained_vectors(
         config['embedding']['src'], token2id, test=config['test'])
-    models, unk_freq = build_models(
+    models, unk_indices = build_models(
         config, word_freq, token2id, pretrained_vectors, all_df)
 
     print('Start training...')
@@ -225,6 +225,7 @@ def train(config):
         ))
 
     if config['logging']:
+        unk_freq = dict(np.array(list(word_freq.items()))[unk_indices])
         df['y'] = y - ensembler.threshold
         df['t'] = df.target
         maxlen = config['maxlen']
@@ -242,6 +243,8 @@ def train(config):
         df.iloc[tn].to_csv(f'{config["outdir"]}/TN.tsv', sep='\t')
         df.iloc[fp].to_csv(f'{config["outdir"]}/FP.tsv', sep='\t')
         df.iloc[fn].to_csv(f'{config["outdir"]}/FN.tsv', sep='\t')
+        json.dump(
+            word_freq, open(f'{config["outdir"]}/word.json', 'w'), indent=4)
         json.dump(
             unk_freq, open(f'{config["outdir"]}/unk.json', 'w'), indent=4)
 
