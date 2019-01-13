@@ -1,5 +1,6 @@
 import nltk
 import torch
+from unidecode import unidecode
 
 from qiqc.models.aggregator.pooling import AvgPoolingAggregator
 from qiqc.models.aggregator.pooling import MaxPoolingAggregator
@@ -7,8 +8,9 @@ from qiqc.models.aggregator.pooling import SumPoolingAggregator
 from qiqc.models.aggregator.state import BiRNNLastStateAggregator
 from qiqc.models.encoder.attention import StandAloneLinearAttention
 from qiqc.models.encoder.rnn import LSTMEncoder
-from qiqc.models.encoder.rnn import LSTMGRUEncoder
 from qiqc.models.encoder.rnn import GRUEncoder
+from qiqc.models.encoder.rnn import LSTMGRUEncoder
+from qiqc.models.encoder.rnn import GRULSTMEncoder
 from qiqc.models.ensembler.simple import AverageEnsembler
 from qiqc.models.ensembler.stacking import LinearEnsembler
 from qiqc.models.ensembler.stacking import MLPEnsembler
@@ -30,6 +32,7 @@ aggregators = {
 preprocessors = {
     'lower': str.lower,
     'punct': PunctSpacer(),
+    'unidecode': unidecode,
     'number': NumberReplacer(),
     'number+underscore': NumberReplacer(with_underscore=True),
     'misspell': MisspellReplacer(),
@@ -41,8 +44,9 @@ tokenizers = {
 }
 encoders = {
     'lstm': LSTMEncoder,
-    'lstmgru': LSTMGRUEncoder,
     'gru': GRUEncoder,
+    'lstmgru': LSTMGRUEncoder,
+    'grulstm': GRULSTMEncoder,
 }
 ensemblers = {
     'avg': AverageEnsembler,
