@@ -18,7 +18,7 @@ from qiqc.builder import build_tokenizer
 from qiqc.builder import build_ensembler
 from qiqc.builder import build_optimizer
 from qiqc.datasets import load_qiqc
-from qiqc.embeddings import load_pretrained_vectors
+from qiqc.models import load_pretrained_vectors
 from qiqc.model_selection import classification_metrics, ClassificationResult
 from qiqc.utils import pad_sequence, set_seed
 
@@ -60,6 +60,7 @@ def main(args=None):
 def train(config):
     modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
     build_models = modelconf.build_models
+    build_sampler = modelconf.build_sampler
 
     print(config)
     start = time.time()
@@ -111,7 +112,7 @@ def train(config):
 
     print('Load pretrained vectors and build models...')
     pretrained_vectors = load_pretrained_vectors(
-        config['embedding']['src'], token2id, test=config['test'])
+        config['model']['embed']['src'], token2id, test=config['test'])
     models, unk_indices = build_models(
         config, word_freq, token2id, pretrained_vectors, all_df)
 
@@ -149,7 +150,9 @@ def train(config):
 
         for epoch in range(config['epochs']):
             epoch_start = time.time()
-            sampler = None
+            sampler = build_sampler(
+                config['batchsize'], i_cv, epoch,
+                train_df.weights[train_indices].values)
             train_iter = DataLoader(
                 train_dataset, sampler=sampler, drop_last=True,
                 batch_size=config['batchsize'], shuffle=sampler is None)

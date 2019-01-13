@@ -10,11 +10,22 @@ from qiqc.builder import build_encoder
 from qiqc.models import BinaryClassifier
 
 
+def build_sampler(batchsize, i_cv, epoch, weights):
+    n_positives = int((weights == weights.max()).sum())
+    num_samples = 2 * batchsize * (1 + n_positives // batchsize)
+    if True:
+        sampler = torch.utils.data.WeightedRandomSampler(
+            weights=weights, num_samples=num_samples, replacement=True)
+    else:
+        sampler = None
+    return sampler
+
+
 def build_models(config, word_freq, token2id, pretrained_vectors, all_df):
     models = []
     pos_weight = torch.FloatTensor([config['pos_weight']]).to(config['device'])
-    external_vectors = np.concatenate(
-        [wv.vectors[None, :] for wv in pretrained_vectors.values()])
+    external_vectors = np.stack(
+        [wv.vectors for wv in pretrained_vectors.values()])
     external_vectors = external_vectors.mean(axis=0)
 
     unk_indices = (external_vectors == 0).all(axis=1)
@@ -25,19 +36,19 @@ def build_models(config, word_freq, token2id, pretrained_vectors, all_df):
     mean = external_vectors[known_indices].mean()
     std = external_vectors[known_indices].std()
 
-    if config['embedding']['finetune']:
+    if config['model']['embed']['finetune']:
         wv_finetuned = finetune_embedding(
-            config, word_freq, token2id, external_vectors, all_df)
+            Word2Vec, word_freq, external_vectors, all_df)
 
     for i in range(config['cv']):
         embedding_vectors = external_vectors.copy()
         # Assign noise vectors to unknown high frequency tokens
-        if config['embedding']['assign_noise']:
+        if config['model']['embed']['assign_noise']:
             embedding_vectors[trainable_unk_indices] += np.random.normal(
                 mean, std, embedding_vectors[trainable_unk_indices].shape)
 
         # Blend external vectors with local finetuned vectors
-        if config['embedding']['finetune']:
+        if config['model']['embed']['finetune']:
             embedding_vectors += wv_finetuned.vectors
             embedding_vectors /= 2
 
@@ -57,18 +68,15 @@ def build_model(config, embedding, lossfunc):
     return clf
 
 
-def finetune_embedding(config, word_freq, token2id, initial_vectors, all_df):
+def finetune_embedding(w2vmodel, word_freq, initialW, df):
     n_embed = 300
-    tokens = all_df.tokens.values
-    w2v = Word2Vec(
+    tokens = df.tokens.values
+    w2v = w2vmodel(
         size=n_embed, min_count=1, workers=1, sorted_vocab=0)
     w2v.build_vocab_from_freq(word_freq)
-    w2v.wv.vectors[:] = initial_vectors
-    w2v.trainables.syn1neg[:] = initial_vectors
-    assert np.allclose(
-        initial_vectors[token2id['the']], w2v.wv.get_vector('the'))
+    w2v.wv.vectors[:] = initialW
+    w2v.trainables.syn1neg[:] = initialW
     w2v.train(tokens, total_examples=len(tokens), epochs=5)
-    assert (w2v.wv.get_vector('<PAD>') == 0).all()
 
     return w2v.wv
 

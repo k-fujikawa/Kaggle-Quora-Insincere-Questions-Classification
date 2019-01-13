@@ -15,34 +15,22 @@ preprocessors:
   - punct
   - number+underscore
 tokenizer: space
-embedding:
-  finetune:
-    True
-  assign_noise:
-    True
-  src:
-    - glove
-    - paragram
-  model:
-    word2vec
-  params:
-    alpha: 1e-4
-    size: 300
-    min_count: 0
-  standardize:
-    False
-
 optimizer:
   name: adam
   params:
     lr: 0.001
 model:
   embed:
+    src:
+      - glove
+      - paragram
+    finetune:
+      True
+    assign_noise:
+      True
+    standardize:
+      False
     n_embed: 300
-    freeze_embed: True
-    position: false
-    n_hidden: 0
-    hidden_bn: False
     dropout1d: 0.1
     dropout2d: 0.1
   encoder:
@@ -54,7 +42,7 @@ model:
     n_layers: 2
     out_scale: 2
     aggregator: max
-    attention: standalone
+    attention:
   mlp:
     bn0: True
     bn: True
@@ -63,16 +51,5 @@ model:
     n_layers: 2
     n_hidden: 128
 ensembler:
-  model: lgbm
+  model: avg
   test_size: 0.1
-  epochs: 1
-  params:
-    objective: binary
-    min_data_in_leaf: 200
-    learning_rate: 0.01
-    feature_fraction: 0.8
-    bagging_fraction: 0.85
-    bagging_freq: 3
-    metric: 'auc'
-    num_threads: 4
-    scale_pos_weight: 15.5
