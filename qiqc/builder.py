@@ -8,6 +8,7 @@ from qiqc.models.aggregator.state import BiRNNLastStateAggregator
 from qiqc.models.encoder.attention import StandAloneLinearAttention
 from qiqc.models.encoder.rnn import LSTMEncoder
 from qiqc.models.encoder.rnn import LSTMGRUEncoder
+from qiqc.models.encoder.rnn import GRUEncoder
 from qiqc.models.ensembler.simple import AverageEnsembler
 from qiqc.models.ensembler.stacking import LinearEnsembler
 from qiqc.models.ensembler.stacking import MLPEnsembler
@@ -45,6 +46,7 @@ tokenizers = {
 encoders = {
     'lstm': LSTMEncoder,
     'lstmgru': LSTMGRUEncoder,
+    'gru': GRUEncoder,
 }
 ensemblers = {
     'avg': AverageEnsembler,

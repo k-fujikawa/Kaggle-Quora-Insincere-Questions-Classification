@@ -55,3 +55,11 @@ class LSTMGRUEncoder(RNNEncoderBase):
         assert config['n_layers'] > 1
         modules = [nn.LSTM] * (config['n_layers'] - 1) + [nn.GRU]
         super().__init__(config, modules)
+
+
+class GRUEncoder(RNNEncoderBase):
+
+    def __init__(self, config):
+        assert config['n_layers'] > 1
+        modules = [nn.GRU] * config['n_layers']
+        super().__init__(config, modules)
