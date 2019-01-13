@@ -9,6 +9,7 @@ services:
       - $PWD:/src
     environment:
       - HOME=/tmp
+      - DATADIR=/src/input
   cpu:
     <<: *base
     build:

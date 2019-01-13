@@ -1,3 +1,4 @@
+import os
 from functools import partial
 from multiprocessing import Pool
 
@@ -51,7 +52,7 @@ class BasePretrainedVector(object):
 class GNewsPretrainedVector(object):
 
     name = 'GoogleNews-vectors-negative300'
-    path = f'/src/input/embeddings/{name}/{name}.bin'
+    path = f'{os.environ["DATADIR"]}/embeddings/{name}/{name}.bin'
 
     @classmethod
     def load(cls, tokens, limit=None):
@@ -63,16 +64,16 @@ class GNewsPretrainedVector(object):
 class WNewsPretrainedVector(BasePretrainedVector):
 
     name = 'wiki-news-300d-1M'
-    path = f'/src/input/embeddings/{name}/{name}.vec'
+    path = f'{os.environ["DATADIR"]}/embeddings/{name}/{name}.vec'
 
 
 class ParagramPretrainedVector(BasePretrainedVector):
 
     name = 'paragram_300_sl999'
-    path = f'/src/input/embeddings/{name}/{name}.txt'
+    path = f'{os.environ["DATADIR"]}/embeddings/{name}/{name}.txt'
 
 
 class GlovePretrainedVector(BasePretrainedVector):
 
     name = 'glove.840B.300d'
-    path = f'/src/input/embeddings/{name}/{name}.txt'
+    path = f'{os.environ["DATADIR"]}/embeddings/{name}/{name}.txt'

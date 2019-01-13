@@ -1,9 +1,11 @@
+import os
+
 import pandas as pd
 
 
 def load_qiqc(n_rows=None):
-    train_df = pd.read_csv('/src/input/train.csv', nrows=n_rows)
-    submit_df = pd.read_csv('/src/input/test.csv', nrows=n_rows)
+    train_df = pd.read_csv(f'{os.environ["DATADIR"]}/train.csv', nrows=n_rows)
+    submit_df = pd.read_csv(f'{os.environ["DATADIR"]}/test.csv', nrows=n_rows)
     n_labels = {
         0: (train_df.target == 0).sum(),
         1: (train_df.target == 1).sum(),
