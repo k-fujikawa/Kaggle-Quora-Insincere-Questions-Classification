@@ -18,8 +18,6 @@ from qiqc.preprocessors.pipeline import PreprocessPipeline
 from qiqc.preprocessors.normalizer import PunctSpacer
 from qiqc.preprocessors.normalizer import NumberReplacer
 from qiqc.preprocessors.normalizer import MisspellReplacer
-from qiqc.preprocessors.normalizer import HengZhengMisspellReplacer
-from qiqc.preprocessors.normalizer import NguenMisspellReplacer
 from qiqc.preprocessors.normalizer import KerasFilterReplacer
 
 
@@ -35,8 +33,6 @@ preprocessors = {
     'number': NumberReplacer(),
     'number+underscore': NumberReplacer(with_underscore=True),
     'misspell': MisspellReplacer(),
-    'hengzheng_misspell': HengZhengMisspellReplacer(),
-    'nguen_misspell': NguenMisspellReplacer(),
     'keras': KerasFilterReplacer(),
 }
 tokenizers = {

@@ -51,7 +51,7 @@ class BaseStackingEnsembler(BaseEnsembler, nn.Module):
         # Build dataset with predicted values
         X = X.to(self.config['device'])
         X_iter = DataLoader(
-            X, batch_size=config['batchsize_valid'], shuffle=False)
+            X, batch_size=self.config['batchsize_valid'], shuffle=False)
         ys = []
         for batch in tqdm(X_iter, desc='ensemble/preprocess', leave=False):
             ys.append(self.predict_features(batch))

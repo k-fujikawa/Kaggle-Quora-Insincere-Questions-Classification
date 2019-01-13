@@ -75,7 +75,7 @@ class MultiHeadAttention(nn.Module):
 
         # 1) Do all the linear projections in batch from out_size => h x d_k
         query, key, value = [
-            l(x).view(batchsize, maxlen, self.attn_heads, self.out_size_child)\
+            l(x).view(batchsize, maxlen, self.attn_heads, self.out_size_child)
                 .transpose(1, 2)
             for l, x in zip(self.linear_layers, (query, key, value))]
 
