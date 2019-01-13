@@ -68,7 +68,7 @@ class LGBMEnsembler(BaseStackingEnsembler):
         )
 
     def predict_proba(self, X):
-        self.predictor
+        raise NotImplementedError
 
     def predict_features(self, X):
         ys = []
