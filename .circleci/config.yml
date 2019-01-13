@@ -1,0 +1,14 @@
+version: 2
+jobs:
+  build:
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
+    steps:
+      - checkout
+      - run:
+          name: Build application Docker image
+          command: docker-compose build
+      - run:
+          name: Run application test
+          command: docker-compose run test

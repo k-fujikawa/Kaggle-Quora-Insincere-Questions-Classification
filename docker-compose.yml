@@ -16,6 +16,13 @@ services:
   gpu:
     <<: *base
     runtime: nvidia
+  test:
+    <<: *base
+    command:
+      bash -c "
+      flake8 &&
+      pytest
+      "
   jupyter:
     <<: *base
     ports:
