@@ -7,6 +7,7 @@ services:
     init: true
     volumes:
       - $PWD:/src
+      - $HOME/.kaggle:/tmp/.kaggle
     environment:
       - HOME=/tmp
       - DATADIR=/src/input
@@ -43,4 +44,3 @@ services:
       bash -c "
       tensorboard --port ${TFPORT:-9999} --logdir /tflog
       "
-
