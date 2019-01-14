@@ -2,6 +2,7 @@
 pyyaml
 kaggle
 prompter
+joblib
 
 # ML packages
 pandas

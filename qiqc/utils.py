@@ -6,7 +6,9 @@ from pathlib import Path
 
 import torch
 import numpy as np
+import pandas as pd
 import prompter
+from joblib import Parallel, delayed
 
 
 def rmtree_after_confirmation(path, force=False):
@@ -30,3 +32,9 @@ def set_seed(seed=0):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
+
+
+def parallel_apply(df, f, processes=2):
+    dfs = np.array_split(df, processes)
+    outputs = Parallel(n_jobs=processes)(delayed(f)(df) for df in dfs)
+    return pd.concat(outputs)

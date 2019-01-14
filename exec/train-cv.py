@@ -20,7 +20,7 @@ from qiqc.builder import build_optimizer
 from qiqc.datasets import load_qiqc
 from qiqc.models import load_pretrained_vectors
 from qiqc.model_selection import classification_metrics, ClassificationResult
-from qiqc.utils import pad_sequence, set_seed
+from qiqc.utils import pad_sequence, set_seed, parallel_apply
 
 
 def main(args=None):
@@ -71,10 +71,9 @@ def train(config):
     tokenizer = build_tokenizer(config['tokenizer'])
 
     print('Preprocess texts...')
-    train_df['tokens'] = train_df.question_text.apply(
-        lambda x: tokenizer(preprocessor(x)))
-    submit_df['tokens'] = submit_df.question_text.apply(
-        lambda x: tokenizer(preprocessor(x)))
+    preprocess = lambda x: x.apply(lambda x: tokenizer(preprocessor(x)))  # NOQA
+    train_df['tokens'] = parallel_apply(train_df.question_text, preprocess)
+    submit_df['tokens'] = parallel_apply(submit_df.question_text, preprocess)
     all_df = pd.concat([train_df, submit_df], ignore_index=True, sort=False)
 
     print('Build vocabulary...')
