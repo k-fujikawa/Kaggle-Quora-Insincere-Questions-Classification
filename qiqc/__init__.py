@@ -1,9 +1,3 @@
-import os
-import random
-
-import numpy as np
-import torch
-
 import qiqc.builder  # NOQA
 import qiqc.config  # NOQA
 import qiqc.loader  # NOQA
