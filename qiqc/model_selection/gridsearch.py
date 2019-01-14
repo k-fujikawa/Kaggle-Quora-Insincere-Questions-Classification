@@ -14,13 +14,17 @@ def train_gridsearch(config, train):
         for keys, param in _hyperparams.items():
             qiqc.config.set_by_path(config, keys.split('.'), param)
         name = ' '.join([f'{k}:{p}' for k, p in _hyperparams.items()])
-        config['outdir'] = f'{outdir}/{name}'
+        config['outdir'] = outdir / name
         print(f'\nExperiment {i+1}/{len(gridparams)}: {name}')
         results = train(config)
         for k, v in results.items():
             gridparams.ix[i, k] = v
 
-    scores = gridparams.sort_values(
-        ['test_fbeta', 'valid_fbeta'], ascending=False)
+    if config['holdout']:
+        keys = ['test_fbeta', 'valid_fbeta']
+    else:
+        keys = ['valid_fbeta']
+
+    scores = gridparams.sort_values(keys, ascending=False)
     scores.to_csv(f'{outdir}/result.tsv', sep='\t')
     print(scores)

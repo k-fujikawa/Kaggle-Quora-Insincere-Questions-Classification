@@ -58,6 +58,7 @@ def main(args=None):
 
 
 def train(config):
+    config['outdir'].mkdir(parents=True, exist_ok=True)
     modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
     build_models = modelconf.build_models
     build_sampler = modelconf.build_sampler
@@ -244,13 +245,16 @@ def train(config):
         fp = np.argwhere(is_error * ~t.astype('bool'))[:, 0]
         fn = np.argwhere(is_error * t.astype('bool'))[:, 0]
         df = df[['qid', 'question_text', 'tokens', '_tokens', 'y', 't']]
-        df.iloc[tp].to_csv(f'{config["outdir"]}/TP.tsv', sep='\t')
-        df.iloc[fp].to_csv(f'{config["outdir"]}/FP.tsv', sep='\t')
-        df.iloc[fn].to_csv(f'{config["outdir"]}/FN.tsv', sep='\t')
+        df.iloc[tp].to_csv(config['outdir'] / 'TP.tsv', sep='\t')
+        df.iloc[fp].to_csv(config['outdir'] / 'FP.tsv', sep='\t')
+        df.iloc[fn].to_csv(config['outdir'] / 'FN.tsv', sep='\t')
         json.dump(
-            word_freq, open(f'{config["outdir"]}/word.json', 'w'), indent=4)
+            word_freq, open(config['outdir'] / 'word.json', 'w'), indent=4)
         json.dump(
-            unk_freq, open(f'{config["outdir"]}/unk.json', 'w'), indent=4)
+            unk_freq, open(config['outdir'] / 'unk.json', 'w'), indent=4)
+        for i, result in enumerate(valid_results):
+            result.summary.to_csv(
+                config['outdir'] / 'summary_valid_{i}.tsv', sep='\t')
 
     print(scores)
 
@@ -258,6 +262,7 @@ def train(config):
     submit_y = ensembler.predict(submit_X)
     submit_df['prediction'] = submit_y
     submit_df = submit_df[['qid', 'prediction']]
+    submit_df.to_csv(config['outdir'] / 'submission.csv', index=False)
 
     return scores
 

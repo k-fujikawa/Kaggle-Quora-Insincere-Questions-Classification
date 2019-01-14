@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 from sklearn import metrics
-from tensorboardX import SummaryWriter
 
 
 def classification_metrics(ys, ts):
@@ -40,8 +39,6 @@ class ClassificationResult(object):
         self.summary = None
         self.main_metrics = main_metrics
         self.n_trained = 0
-        if outdir is not None:
-            self.writer = SummaryWriter(str(outdir))
 
     def initialize(self):
         self.losses = []
@@ -53,9 +50,6 @@ class ClassificationResult(object):
         self.ys.append(y)
         self.ts.append(t)
         self.n_trained += len(y)
-        if self.outdir is not None:
-            self.writer.add_scalar(
-                f'{self.name}/loss/{self.postfix}', loss, self.n_trained)
 
     def calc_score(self, epoch):
         loss = np.array(self.losses).mean()
