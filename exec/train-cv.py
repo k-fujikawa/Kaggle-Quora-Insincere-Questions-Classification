@@ -199,35 +199,38 @@ def train(config):
         results=valid_results,
     )
 
-    y, indices, ensemble_score = ensembler.fit(
-        train_X, train_t, config['ensembler']['test_size'])
-    y_pred = y > ensemble_score['threshold']
-    df, t = train_df.iloc[indices].copy(), train_t.numpy()[indices]
-
+    ensembler.fit(train_X, train_t, config['ensembler']['test_size'])
     scores = dict(
         valid_fbeta=np.array([r.best_fbeta for r in valid_results]).mean(),
         valid_epoch=np.array([r.best_epoch for r in valid_results]).mean(),
-        valid_threshold=np.array([
-            r.best_threshold for r in valid_results]).mean(),
-        ensemble_fbeta=ensemble_score['fbeta'],
-        ensemble_threshold=ensemble_score['threshold'],
+        threshold_cv=ensembler.threshold_cv,
+        threshold=ensembler.threshold,
         elapsed_time=time.time() - start,
     )
 
     if config['holdout']:
         df = test_df
         y, t = ensembler.predict_proba(test_X), test_t
-        y_pred = y > ensemble_score['threshold']
+        y_pred = y > ensembler.threshold
+        y_pred_cv = y > ensembler.threshold
         result = classification_metrics(y_pred, t)
+        result_cv = classification_metrics(y_pred_cv, t)
         result_theoretical = classification_metrics(y, t)
         scores.update(dict(
             test_fbeta=result['fbeta'],
             test_fbeta_theoretical=result_theoretical['fbeta'],
             test_threshold=result['threshold'],
+            test_threshold_cv=result_cv['threshold'],
             test_threshold_theoretical=result_theoretical['threshold'],
         ))
 
     if config['logging']:
+        part = config['cv'] if config['cv_part'] is None else config['cv_part']
+        indices = np.concatenate(
+            [s[1] for s in splitter.split(train_X, train_t)][:part])
+        df, t = train_df.iloc[indices].copy(), train_t.numpy()[indices]
+        y = np.concatenate([r.best_ys for r in valid_results])
+        y_pred = y > ensembler.threshold
         unk_freq = dict(np.array(list(word_freq.items()))[unk_indices])
         df['y'] = y - ensembler.threshold
         df['t'] = df.target
@@ -238,12 +241,10 @@ def train(config):
                 x._tokens[:maxlen], '<UNK>', x.tokens[:maxlen]), axis=1)
         is_error = y_pred != t
         tp = np.argwhere(~is_error * t.astype('bool'))[:, 0]
-        tn = np.argwhere(~is_error * ~t.astype('bool'))[:, 0]
         fp = np.argwhere(is_error * ~t.astype('bool'))[:, 0]
         fn = np.argwhere(is_error * t.astype('bool'))[:, 0]
         df = df[['qid', 'question_text', 'tokens', '_tokens', 'y', 't']]
         df.iloc[tp].to_csv(f'{config["outdir"]}/TP.tsv', sep='\t')
-        df.iloc[tn].to_csv(f'{config["outdir"]}/TN.tsv', sep='\t')
         df.iloc[fp].to_csv(f'{config["outdir"]}/FP.tsv', sep='\t')
         df.iloc[fn].to_csv(f'{config["outdir"]}/FN.tsv', sep='\t')
         json.dump(

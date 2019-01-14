@@ -52,3 +52,4 @@ model:
 ensembler:
   model: avg
   test_size: 0.1
+  retrain_threshold: True

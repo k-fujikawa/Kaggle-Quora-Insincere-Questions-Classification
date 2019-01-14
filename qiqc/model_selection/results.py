@@ -6,8 +6,6 @@ from tensorboardX import SummaryWriter
 
 def classification_metrics(ys, ts):
     scores = {}
-    ys = np.concatenate(ys)
-    ts = np.concatenate(ts)
 
     if len(np.unique(ts)) > 1:
         # Search optimal threshold
@@ -61,6 +59,7 @@ class ClassificationResult(object):
 
     def calc_score(self, epoch):
         loss = np.array(self.losses).mean()
+        self.ys, self.ts = np.concatenate(self.ys), np.concatenate(self.ts)
         score = classification_metrics(self.ys, self.ts)
         summary = dict(name=self.name, loss=loss, **score)
         if len(score) > 0:
@@ -69,6 +68,9 @@ class ClassificationResult(object):
                 self.summary.index.name = 'epoch'
             else:
                 self.summary.loc[epoch] = summary
+        if self.best_epoch == epoch:
+            self.best_ys = self.ys
+            self.best_ts = self.ts
         self.initialize()
 
     def get_dict(self):

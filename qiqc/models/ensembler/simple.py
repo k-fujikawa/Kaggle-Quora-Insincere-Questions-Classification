@@ -17,8 +17,13 @@ class AverageEnsembler(BaseEnsembler):
         self.device = config['device']
         self.batchsize_train = config['batchsize']
         self.batchsize_valid = config['batchsize_valid']
+        self.threshold_cv = np.array(
+            [r.best_threshold for r in results]).mean()
 
     def fit(self, X, t, test_size=0.1):
+        if not self.config['ensembler'].get('retrain_threshold'):
+            self.threshold = self.threshold_cv
+            return
         n_tests = int(len(X) * test_size)
         indices = np.random.permutation(range(len(X)))[:n_tests]
         test_X = X[indices].to(self.device)
@@ -34,7 +39,6 @@ class AverageEnsembler(BaseEnsembler):
         y = np.array(ys).mean(axis=0)
         metrics = classification_metrics(y, test_t)
         self.threshold = metrics['threshold']
-        return y, indices, metrics
 
     def predict_proba(self, X):
         pred_X = X.to(self.device)
