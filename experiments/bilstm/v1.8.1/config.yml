@@ -4,10 +4,9 @@ seed: 1029
 epochs: 5
 maxlen: 72
 logging: True
-pos_weight: 1.
 
+pos_weight: 1.
 vocab:
-  max_size:
   min_count: 5
 preprocessors:
   - lower
@@ -15,41 +14,34 @@ preprocessors:
   - punct
   - number+underscore
 tokenizer: space
-embedding:
-  add_los:
-    False
-  finetune:
-    False
-  src:
-    - glove
-    - paragram
-  model:
-    word2vec
-  params:
-    alpha: 1e-4
-    size: 300
-    min_count: 0
-  standardize:
-    False
-
 optimizer:
   name: adam
   params:
     lr: 0.001
 model:
   embed:
+    src:
+      - glove
+      - paragram
+    finetune:
+      True
+    assign_noise:
+      True
+    standardize:
+      False
     n_embed: 300
-    n_hidden: 0
-    dropout: 0.2
+    dropout1d: 0.2
+    dropout2d: 0.
   encoder:
     name: lstm
     bidirectional: True
-    dropout: 0
+    dropout: 0.
     n_input: 300
     n_hidden: 128
     n_layers: 2
     out_scale: 2
     aggregator: max
+    attention:
   mlp:
     bn0: False
     bn: True
@@ -60,8 +52,4 @@ model:
 ensembler:
   model: avg
   test_size: 0.1
-  epochs: 1
-  params:
-    bn: True
-    n_layers: 2
-    n_hidden: 128
+  retrain_threshold: True
