@@ -4,10 +4,9 @@ seed: 0
 epochs: 5
 maxlen: 72
 logging: True
-pos_weight: 1.
 
+pos_weight: 1.
 vocab:
-  max_size:
   min_count: 5
 preprocessors:
   - lower

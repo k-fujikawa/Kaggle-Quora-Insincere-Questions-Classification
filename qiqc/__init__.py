@@ -1,3 +1,4 @@
+import os
 import random
 
 import numpy as np
@@ -22,3 +23,4 @@ def set_seed(seed):
 
     # When running on the CuDNN backend
     torch.backends.cudnn.deterministic = True
+    os.environ['PYTHONHASHSEED'] = str(seed)

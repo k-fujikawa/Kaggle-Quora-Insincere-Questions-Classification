@@ -28,7 +28,7 @@ class BasePretrainedVector(object):
 
     @classmethod
     def load(cls, token2id, test=False):
-        limit = 1000 if test else 1000
+        limit = 1000 if test else None
         freqs = np.zeros((len(token2id)), dtype='f')
         vectors = np.zeros((len(token2id), 300), dtype='f')
         for i, o in enumerate(
