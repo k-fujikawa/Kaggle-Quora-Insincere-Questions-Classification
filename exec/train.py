@@ -252,7 +252,7 @@ def train(config):
             unk_freq, open(config['outdir'] / 'unk.json', 'w'), indent=4)
         for i, result in enumerate(valid_results):
             result.summary.to_csv(
-                config['outdir'] / 'summary_valid_{i}.tsv', sep='\t')
+                config['outdir'] / f'summary_valid_{i}.tsv', sep='\t')
 
     print(scores)
 
