@@ -212,15 +212,14 @@ def train(config):
         df = test_df
         y, t = ensembler.predict_proba(test_X), test_t
         y_pred = y > ensembler.threshold
-        y_pred_cv = y > ensembler.threshold
+        y_pred_cv = y > ensembler.threshold_cv
         result = classification_metrics(y_pred, t)
         result_cv = classification_metrics(y_pred_cv, t)
         result_theoretical = classification_metrics(y, t)
         scores.update(dict(
             test_fbeta=result['fbeta'],
+            test_fbeta_cv=result_cv['fbeta'],
             test_fbeta_theoretical=result_theoretical['fbeta'],
-            test_threshold=result['threshold'],
-            test_threshold_cv=result_cv['threshold'],
             test_threshold_theoretical=result_theoretical['threshold'],
         ))
 
