@@ -17,8 +17,8 @@ from qiqc.builder import build_preprocessor
 from qiqc.builder import build_tokenizer
 from qiqc.builder import build_ensembler
 from qiqc.builder import build_optimizer
+from qiqc.features import load_pretrained_vectors
 from qiqc.datasets import load_qiqc
-from qiqc.models import load_pretrained_vectors
 from qiqc.model_selection import classification_metrics, ClassificationResult
 from qiqc.utils import pad_sequence, set_seed, parallel_apply
 
