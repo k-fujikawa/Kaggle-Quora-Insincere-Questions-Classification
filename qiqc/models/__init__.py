@@ -3,7 +3,6 @@ from qiqc.models.aggregator.pooling import AvgPoolingAggregator  # NOQA
 from qiqc.models.aggregator.pooling import SumPoolingAggregator  # NOQA
 from qiqc.models.aggregator.pooling import MaxPoolingAggregator  # NOQA
 from qiqc.models.classifier import BinaryClassifier  # NOQA
-from qiqc.models.embedding.pretrained import load_pretrained_vectors  # NOQA
 from qiqc.models.encoder.attention import MultiHeadAttention  # NOQA
 from qiqc.models.encoder.attention import MultiHeadSelfAttention  # NOQA
 from qiqc.models.encoder.transformer import TransformerEncoder  # NOQA
