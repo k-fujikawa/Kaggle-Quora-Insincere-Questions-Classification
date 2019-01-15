@@ -9,7 +9,8 @@ class StringReplacer(object):
 
     def __call__(self, x):
         for old, new in self.rule.items():
-            x = x.replace(old, new)
+            if old in x:
+                x = x.replace(old, new)
         return x
 
 
