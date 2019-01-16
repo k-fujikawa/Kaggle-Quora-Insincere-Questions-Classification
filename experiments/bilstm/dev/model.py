@@ -3,7 +3,6 @@ import numpy as np
 from torch import nn
 
 from gensim.models import Word2Vec
-from sklearn.preprocessing import StandardScaler
 
 from qiqc.builder import build_attention
 from qiqc.builder import build_aggregator

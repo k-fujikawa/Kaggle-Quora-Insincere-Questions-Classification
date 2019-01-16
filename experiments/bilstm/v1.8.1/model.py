@@ -74,6 +74,10 @@ def finetune_embedding(w2vmodel, word_freq, initialW, df):
     return w2v.wv
 
 
+class SentenceFeature(object):
+    pass
+
+
 class Encoder(nn.Module):
 
     def __init__(self, config, embedding):
@@ -92,7 +96,7 @@ class Encoder(nn.Module):
             self.attn = build_attention(config['encoder']['attention'])(
                 config['encoder']['n_hidden'] * config['encoder']['out_scale'])
 
-    def forward(self, X, mask):
+    def forward(self, X, X2, mask):
         h = self.embedding(X)
         if self.config['embed']['dropout1d'] > 0:
             h = self.dropout1d(h)
@@ -102,4 +106,6 @@ class Encoder(nn.Module):
         if self.config['encoder'].get('attention') is not None:
             h = self.attn(h, mask)
         h = self.aggregator(h, mask)
+        if self.config['encoder']['sentence_features'] > 0:
+            h = torch.cat([h, X2], dim=1)
         return h

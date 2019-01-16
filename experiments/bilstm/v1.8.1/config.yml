@@ -1,3 +1,5 @@
+cv: 5
+cv_part:
 batchsize: 512
 batchsize_valid: 1024
 seed: 1029
@@ -43,6 +45,7 @@ model:
     out_scale: 2
     aggregator: max
     attention:
+    sentence_features: 0
   mlp:
     bn0: False
     bn: True
