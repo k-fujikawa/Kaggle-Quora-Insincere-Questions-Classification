@@ -18,7 +18,7 @@ class AverageEnsembler(BaseEnsembler):
         self.batchsize_train = config['batchsize']
         self.batchsize_valid = config['batchsize_valid']
         self.threshold_cv = np.array(
-            [r.best_threshold for r in results]).mean()
+            [m.threshold for m in models]).mean()
 
     def fit(self, X, t, test_size=0.1):
         if not self.config['ensembler'].get('retrain_threshold'):

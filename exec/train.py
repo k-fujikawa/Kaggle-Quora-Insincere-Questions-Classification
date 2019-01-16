@@ -43,7 +43,7 @@ def main(args=None):
     if args.test:
         config['n_rows'] = 500
         config['batchsize'] = 64
-        config['epochs'] = 2
+        config['epochs'] = 5
         config['cv_part'] = 2
     else:
         config['n_rows'] = None
@@ -120,7 +120,7 @@ def train(config):
     splitter = sklearn.model_selection.StratifiedKFold(
         n_splits=config['cv'], shuffle=True, random_state=config['seed'])
     train_results, valid_results = [], []
-    best_models = {}
+    best_models = []
     for i_cv, (train_indices, valid_indices) in enumerate(
             splitter.split(train_X, train_t)):
         if config['cv_part'] is not None and i_cv >= config['cv_part']:
@@ -142,6 +142,7 @@ def train(config):
 
         model = models.pop(0)
         model = model.to_device(config['device'])
+        model_snapshots = []
         optimizer = build_optimizer(config['optimizer'], model)
         train_result = ClassificationResult(
             'train', config['outdir'], str(i_cv))
@@ -156,6 +157,7 @@ def train(config):
             train_iter = DataLoader(
                 train_dataset, sampler=sampler, drop_last=True,
                 batch_size=config['batchsize'], shuffle=sampler is None)
+            _summary = []
 
             # Training loop
             for i, batch in enumerate(
@@ -167,35 +169,39 @@ def train(config):
                 optimizer.step()
                 train_result.add_record(**output)
             train_result.calc_score(epoch)
+            _summary.append(train_result.summary.iloc[-1])
 
             # Validation loop
-            for i, batch in enumerate(
-                    tqdm(valid_iter, desc='valid', leave=False)):
-                model.eval()
-                loss, output = model.calc_loss(*batch)
-                valid_result.add_record(**output)
-            valid_result.calc_score(epoch)
-            summary = pd.DataFrame([
-                train_result.summary.iloc[-1],
-                valid_result.summary.iloc[-1],
-            ]).set_index('name')
+            if epoch >= config['validate_from']:
+                for i, batch in enumerate(
+                        tqdm(valid_iter, desc='valid', leave=False)):
+                    model.eval()
+                    loss, output = model.calc_loss(*batch)
+                    valid_result.add_record(**output)
+                valid_result.calc_score(epoch)
+                _summary.append(valid_result.summary.iloc[-1])
+
+                _model = deepcopy(model)
+                _model.threshold = valid_result.summary.threshold[epoch]
+                model_snapshots.append(_model)
+
+            summary = pd.DataFrame(_summary).set_index('name')
             epoch_time = time.time() - epoch_start
             pbar = '#' * (i_cv + 1) + '-' * (config['cv'] - 1 - i_cv)
             tqdm.write(f'\n{pbar} cv: {i_cv} / {config["cv"]}, epoch {epoch}, '
                        f'time: {epoch_time}')
             tqdm.write(str(summary))
 
-            # Case: updating the best score
-            if epoch == valid_result.best_epoch:
-                best_models[i_cv] = deepcopy(model)
-
         train_results.append(train_result)
         valid_results.append(valid_result)
+        best_indices = valid_result.summary.fbeta.argsort()[::-1]
+        best_models.extend([model_snapshots[i] for i in
+                            best_indices[:config['ensembler']['n_snapshots']]])
 
     # Build ensembler
     ensembler = build_ensembler(config['ensembler']['model'])(
         config=config,
-        models=list(best_models.values()),
+        models=best_models,
         results=valid_results,
     )
 
