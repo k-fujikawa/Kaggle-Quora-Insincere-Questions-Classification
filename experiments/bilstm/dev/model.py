@@ -3,6 +3,7 @@ import numpy as np
 from torch import nn
 
 from gensim.models import Word2Vec
+from sklearn.preprocessing import StandardScaler
 
 from qiqc.builder import build_attention
 from qiqc.builder import build_aggregator
@@ -11,14 +12,7 @@ from qiqc.models import BinaryClassifier
 
 
 def build_sampler(batchsize, i_cv, epoch, weights):
-    n_positives = int((weights == weights.max()).sum())
-    num_samples = 2 * batchsize * (1 + n_positives // batchsize)
-    if True:
-        sampler = torch.utils.data.WeightedRandomSampler(
-            weights=weights, num_samples=num_samples, replacement=True)
-    else:
-        sampler = None
-    return sampler
+    return None
 
 
 def build_models(config, word_freq, token2id, pretrained_vectors, all_df):
@@ -81,28 +75,57 @@ def finetune_embedding(w2vmodel, word_freq, initialW, df):
     return w2v.wv
 
 
+class SentenceFeature(object):
+
+    out_size = 6
+
+    def __call__(self, sentence):
+        feature = {}
+        tokens = sentence.split()
+        feature['n_chars'] = len(sentence)
+        feature['n_caps'] = sum(1 for char in sentence if char.isupper())
+        feature['caps_rate'] = feature['n_caps'] / feature['n_chars']
+        feature['n_words'] = len(tokens)
+        feature['unique_words'] = len(set(tokens))
+        feature['unique_rate'] = feature['unique_words'] / feature['n_words']
+        features = np.array(list(feature.values()))
+        return features
+
+    def transform(self, train_df, submit_df):
+        mean = train_df._X2.values.mean()
+        std = train_df._X2.values.std()
+        train_df['X2'] = (train_df._X2 - mean) / std
+        submit_df['X2'] = (submit_df._X2 - mean) / std
+
+
 class Encoder(nn.Module):
 
     def __init__(self, config, embedding):
         super().__init__()
+        self.config = config
         self.embedding = embedding
-        self.dropout1d = nn.Dropout(config['embed']['dropout1d'])
-        self.dropout2d = nn.Dropout2d(config['embed']['dropout2d'])
+        if self.config['embed']['dropout1d'] > 0:
+            self.dropout1d = nn.Dropout(config['embed']['dropout1d'])
+        if self.config['embed']['dropout2d'] > 0:
+            self.dropout2d = nn.Dropout2d(config['embed']['dropout2d'])
         self.encoder = build_encoder(
             config['encoder']['name'])(config['encoder'])
         self.aggregator = build_aggregator(
             config['encoder']['aggregator'])
-        self.attn = None
-        if config['encoder'].get('attention') is not None:
+        if self.config['encoder'].get('attention') is not None:
             self.attn = build_attention(config['encoder']['attention'])(
                 config['encoder']['n_hidden'] * config['encoder']['out_scale'])
 
-    def forward(self, X, mask):
+    def forward(self, X, X2, mask):
         h = self.embedding(X)
-        h = self.dropout1d(h)
-        h = self.dropout2d(h)
+        if self.config['embed']['dropout1d'] > 0:
+            h = self.dropout1d(h)
+        if self.config['embed']['dropout2d'] > 0:
+            h = self.dropout2d(h)
         h = self.encoder(h, mask)
-        if self.attn is not None:
+        if self.config['encoder'].get('attention') is not None:
             h = self.attn(h, mask)
         h = self.aggregator(h, mask)
+        if self.config['encoder']['sentence_features'] > 0:
+            h = torch.cat([h, X2], dim=1)
         return h
