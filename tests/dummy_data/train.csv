@@ -1,0 +1,21 @@
+qid,question_text,target
+abcd0001,This is a test.,0
+abcd0002,This is not a test.,0
+abcd0003,How are you?.,0
+abcd0004,I am 30 years old.,0
+abcd0005,This is a test.,0
+abcd0006,This is not a test.,0
+abcd0007,How are you?.,0
+abcd0008,I am 30 years old.,0
+abcd0009,This is a test.,0
+abcd0010,This is not a test.,0
+abcd0011,How are you?.,0
+abcd0012,I am 30 years old.,0
+abcd0013,This is a test.,1
+abcd0014,This is not a test.,1
+abcd0015,How are you?.,1
+abcd0016,I am 30 years old.,1
+abcd0017,This is a test.,1
+abcd0018,This is not a test.,1
+abcd0019,How are you?.,1
+abcd0020,I am 30 years old.,1

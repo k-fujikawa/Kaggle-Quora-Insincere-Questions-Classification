@@ -62,7 +62,7 @@ def train(config):
     modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
     build_models = modelconf.build_models
     build_sampler = modelconf.build_sampler
-    sentence_feature = modelconf.SentenceFeature()
+    SentenceFeature = modelconf.SentenceFeature
 
     print(config)
     start = time.time()
@@ -73,6 +73,7 @@ def train(config):
 
     print('Preprocess texts...')
     tokenize = lambda x: x.apply(lambda x: tokenizer(preprocessor(x)))  # NOQA
+    sentence_feature = SentenceFeature()
     train_df['tokens'] = parallel_apply(train_df.question_text, tokenize)
     submit_df['tokens'] = parallel_apply(submit_df.question_text, tokenize)
     if config['model']['encoder']['sentence_features'] > 0:
