@@ -43,7 +43,7 @@ def main(args=None):
     if args.test:
         config['n_rows'] = 500
         config['batchsize'] = 64
-        config['epochs'] = 5
+        config['epochs'] = 3
         config['cv_part'] = 2
     else:
         config['n_rows'] = None
@@ -62,6 +62,7 @@ def train(config):
     modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
     build_models = modelconf.build_models
     build_sampler = modelconf.build_sampler
+    sentence_feature = modelconf.SentenceFeature()
 
     print(config)
     start = time.time()
@@ -71,9 +72,17 @@ def train(config):
     tokenizer = build_tokenizer(config['tokenizer'])
 
     print('Preprocess texts...')
-    preprocess = lambda x: x.apply(lambda x: tokenizer(preprocessor(x)))  # NOQA
-    train_df['tokens'] = parallel_apply(train_df.question_text, preprocess)
-    submit_df['tokens'] = parallel_apply(submit_df.question_text, preprocess)
+    tokenize = lambda x: x.apply(lambda x: tokenizer(preprocessor(x)))  # NOQA
+    train_df['tokens'] = parallel_apply(train_df.question_text, tokenize)
+    submit_df['tokens'] = parallel_apply(submit_df.question_text, tokenize)
+    if config['model']['encoder']['sentence_features'] > 0:
+        train_df['_X2'] = parallel_apply(
+            train_df.question_text, lambda x: x.apply(sentence_feature))
+        submit_df['_X2'] = parallel_apply(
+            submit_df.question_text, lambda x: x.apply(sentence_feature))
+        sentence_feature.transform(train_df, submit_df)
+    else:
+        train_df['X2'], submit_df['X2'] = np.nan, np.nan
     all_df = pd.concat([train_df, submit_df], ignore_index=True, sort=False)
 
     print('Build vocabulary...')
@@ -101,14 +110,19 @@ def train(config):
 
         test_X = torch.Tensor(test_df.token_ids.tolist()).type(torch.long)
         test_X = test_X.to(config['device'])
+        test_X2 = torch.Tensor(test_df.X2.tolist()).type(torch.float)
+        test_X2 = test_X2.to(config['device'])
         test_t = test_df.target[:, None]
 
     train_X = torch.Tensor(train_df.token_ids.tolist()).type(torch.long)
+    train_X2 = torch.Tensor(train_df.X2.tolist()).type(torch.float)
     train_W = torch.Tensor(train_df.weights).type(torch.float)
     train_t = torch.Tensor(train_df.target[:, None]).type(torch.float)
 
     submit_X = torch.Tensor(submit_df.token_ids).type(torch.long)
     submit_X = submit_X.to(config['device'])
+    submit_X2 = torch.Tensor(submit_df.X2.tolist()).type(torch.float)
+    submit_X2 = submit_X2.to(config['device'])
 
     print('Load pretrained vectors and build models...')
     pretrained_vectors = load_pretrained_vectors(
@@ -126,17 +140,19 @@ def train(config):
         if config['cv_part'] is not None and i_cv >= config['cv_part']:
             break
         _train_X = train_X[train_indices].to(config['device'])
+        _train_X2 = train_X2[train_indices].to(config['device'])
         _train_W = train_W[train_indices].to(config['device'])
         _train_t = train_t[train_indices].to(config['device'])
 
         _valid_X = train_X[valid_indices].to(config['device'])
+        _valid_X2 = train_X2[valid_indices].to(config['device'])
         _valid_W = train_W[valid_indices].to(config['device'])
         _valid_t = train_t[valid_indices].to(config['device'])
 
         train_dataset = torch.utils.data.TensorDataset(
-            _train_X, _train_t, _train_W)
+            _train_X, _train_X2, _train_t, _train_W)
         valid_dataset = torch.utils.data.TensorDataset(
-            _valid_X, _valid_t, _valid_W)
+            _valid_X, _valid_X2, _valid_t, _valid_W)
         valid_iter = DataLoader(
             valid_dataset, batch_size=config['batchsize_valid'])
 
@@ -205,7 +221,7 @@ def train(config):
         results=valid_results,
     )
 
-    ensembler.fit(train_X, train_t, config['ensembler']['test_size'])
+    ensembler.fit(train_X, train_X2, train_t, config['ensembler']['test_size'])
     scores = dict(
         valid_fbeta=np.array([r.best_fbeta for r in valid_results]).mean(),
         valid_epoch=np.array([r.best_epoch for r in valid_results]).mean(),
@@ -216,7 +232,7 @@ def train(config):
 
     if config['holdout']:
         df = test_df
-        y, t = ensembler.predict_proba(test_X), test_t
+        y, t = ensembler.predict_proba(test_X, test_X2), test_t
         y_pred = y > ensembler.threshold
         y_pred_cv = y > ensembler.threshold_cv
         result = classification_metrics(y_pred, t)
@@ -263,7 +279,7 @@ def train(config):
     print(scores)
 
     # Predict submit datasets
-    submit_y = ensembler.predict(submit_X)
+    submit_y = ensembler.predict(submit_X, submit_X2)
     submit_df['prediction'] = submit_y
     submit_df = submit_df[['qid', 'prediction']]
     submit_df.to_csv(config['outdir'] / 'submission.csv', index=False)

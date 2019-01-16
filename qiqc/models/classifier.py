@@ -11,7 +11,8 @@ class BinaryClassifier(nn.Module):
         self.encoder = encoder
         self.n_hidden = config['mlp']['n_hidden']
         in_size = config['encoder']['n_hidden'] *\
-            config['encoder']['out_scale']
+            config['encoder']['out_scale'] +\
+            config['encoder']['sentence_features']
         self.mlp = MLP(
             n_layers=config['mlp']['n_layers'],
             in_size=in_size,
@@ -25,8 +26,8 @@ class BinaryClassifier(nn.Module):
         self.out = nn.Linear(config['mlp']['n_hidden'], 1)
         self.lossfunc = lossfunc
 
-    def calc_loss(self, X, t, W=None):
-        y = self.forward(X)
+    def calc_loss(self, X, X2, t, W=None):
+        y = self.forward(X, X2)
         loss = self.lossfunc(y, t)
         output = dict(
             y=torch.sigmoid(y).cpu().detach().numpy(),
@@ -40,21 +41,21 @@ class BinaryClassifier(nn.Module):
         self.to(device)
         return self
 
-    def forward(self, X):
-        h = self.predict_features(X)
+    def forward(self, X, X2):
+        h = self.predict_features(X, X2)
         out = self.out(h)
         return out
 
-    def predict_proba(self, X):
-        y = self.forward(X)
+    def predict_proba(self, X, X2):
+        y = self.forward(X, X2)
         proba = torch.sigmoid(y).cpu().detach().numpy()
         return proba
 
-    def predict_features(self, X):
+    def predict_features(self, X, X2):
         mask = X != 0
         maxlen = (mask == 1).any(dim=0).sum()
         X = X[:, :maxlen]
         mask = mask[:, :maxlen]
-        h = self.encoder(X, mask)
+        h = self.encoder(X, X2, mask)
         h = self.mlp(h)
         return h

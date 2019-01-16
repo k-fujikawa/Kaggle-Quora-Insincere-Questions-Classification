@@ -22,11 +22,11 @@ class BaseEnsembler(metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def predict_proba(self, X):
+    def predict_proba(self, X, X2):
         pass
 
-    def predict(self, X):
-        y = self.predict_proba(X)
+    def predict(self, X, X2):
+        y = self.predict_proba(X, X2)
         return (y > self.threshold).astype('i')
 
 
