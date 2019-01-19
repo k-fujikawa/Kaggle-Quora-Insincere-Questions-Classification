@@ -34,7 +34,11 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
-def parallel_apply(df, f, processes=2):
+def parallel_apply(df, f, axis=None, processes=2):
     dfs = np.array_split(df, processes)
-    outputs = Parallel(n_jobs=processes)(delayed(f)(df) for df in dfs)
+    if axis is None:
+        applyfunc = lambda x: x.apply(f)  # NOQA
+    else:
+        applyfunc = lambda x: x.apply(f, axis=axis)  # NOQA
+    outputs = Parallel(n_jobs=processes)(delayed(applyfunc)(df) for df in dfs)
     return pd.concat(outputs)
