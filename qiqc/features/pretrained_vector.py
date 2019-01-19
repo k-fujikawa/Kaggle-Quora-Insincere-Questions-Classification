@@ -30,7 +30,6 @@ class BasePretrainedVector(object):
     def load(cls, token2id, test=False, limit=None):
         embed_shape = (len(token2id), 300)
         freqs = np.zeros((len(token2id)), dtype='f')
-        vectors = np.zeros(embed_shape, dtype='f')
 
         if test:
             np.random.seed(0)
