@@ -15,21 +15,21 @@ def build_sampler(batchsize, i_cv, epoch, weights):
     return None
 
 
-def build_models(config, word_freq, token2id, pretrained_vectors, df):
+def build_models(config, vocab, pretrained_vectors, df):
     models = []
     pos_weight = torch.FloatTensor([config['pos_weight']]).to(config['device'])
     external_vectors = np.stack(
         [wv.vectors for wv in pretrained_vectors.values()])
     external_vectors = external_vectors.mean(axis=0)
     word_features = WordFeature(
-        word_freq, token2id, external_vectors, config['vocab']['min_count'])
+        vocab, external_vectors, config['vocab']['min_count'])
 
     if config['model']['embed']['finetune']:
         word_features.finetune(Word2Vec, df)
 
     if config['model']['embed']['extra_features'] is not None:
         word_features.prepare_extra_features(
-            df, token2id, config['model']['embed']['extra_features'])
+            df, vocab.token2id, config['model']['embed']['extra_features'])
 
     for i in range(config['cv']):
         add_noise = config['model']['embed']['add_noise']
@@ -49,11 +49,15 @@ def build_model(config, embedding, lossfunc):
     return clf
 
 
-class SentenceFeature(object):
+def build_sentence_feature():
+    return StatisticSentenceFeature()
+
+
+class StatisticSentenceFeature(object):
 
     out_size = 6
 
-    def __call__(self, sentence):
+    def extract_features(self, sentence):
         feature = {}
         tokens = sentence.split()
         feature['n_chars'] = len(sentence)
@@ -65,11 +69,14 @@ class SentenceFeature(object):
         features = np.array(list(feature.values()))
         return features
 
-    def transform(self, train_df, submit_df):
-        mean = train_df._X2.values.mean()
-        std = train_df._X2.values.std()
-        train_df['X2'] = (train_df._X2 - mean) / std
-        submit_df['X2'] = (submit_df._X2 - mean) / std
+    def fit_transform(self, features):
+        self.mean = features.mean()
+        self.std = features.std()
+        return (features - self.mean) / self.std
+
+    def transform(self, features):
+        assert hasattr(self, 'mean'), hasattr(self, 'std')
+        return (features - self.mean) / self.std
 
 
 class Encoder(nn.Module):

@@ -29,7 +29,7 @@ class AverageEnsembler(BaseEnsembler):
         indices = np.random.permutation(range(len(X)))[:n_tests]
         test_X = X[indices].to(self.device)
         test_X2 = X2[indices].to(self.device)
-        test_t = t[indices].numpy()
+        test_t = t[indices].cpu().numpy()
         dataset = torch.utils.data.TensorDataset(test_X, test_X2)
         iterator = DataLoader(
             dataset, batch_size=self.batchsize_valid, shuffle=False)

@@ -15,21 +15,21 @@ def build_sampler(batchsize, i_cv, epoch, weights):
     return None
 
 
-def build_models(config, word_freq, token2id, pretrained_vectors, df):
+def build_models(config, vocab, pretrained_vectors, df):
     models = []
     pos_weight = torch.FloatTensor([config['pos_weight']]).to(config['device'])
     external_vectors = np.stack(
         [wv.vectors for wv in pretrained_vectors.values()])
     external_vectors = external_vectors.mean(axis=0)
     word_features = WordFeature(
-        word_freq, token2id, external_vectors, config['vocab']['min_count'])
+        vocab, external_vectors, config['vocab']['min_count'])
 
     if config['model']['embed']['finetune']:
         word_features.finetune(Word2Vec, df)
 
     if config['model']['embed']['extra_features'] is not None:
         word_features.prepare_extra_features(
-            df, token2id, config['model']['embed']['extra_features'])
+            df, vocab.token2id, config['model']['embed']['extra_features'])
 
     for i in range(config['cv']):
         add_noise = config['model']['embed']['add_noise']
@@ -49,8 +49,8 @@ def build_model(config, embedding, lossfunc):
     return clf
 
 
-class SentenceFeature(object):
-    pass
+def build_sentence_feature():
+    return None
 
 
 class Encoder(nn.Module):

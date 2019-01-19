@@ -7,8 +7,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import sklearn
-import torch
-from gensim.corpora import Dictionary
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -17,9 +15,10 @@ from qiqc.builder import build_preprocessor
 from qiqc.builder import build_tokenizer
 from qiqc.builder import build_ensembler
 from qiqc.builder import build_optimizer
-from qiqc.features import load_pretrained_vectors
-from qiqc.datasets import load_qiqc
+from qiqc.features import load_pretrained_vectors, WordVocab
+from qiqc.datasets import load_qiqc, QIQCDataset
 from qiqc.model_selection import classification_metrics, ClassificationResult
+from qiqc.preprocessors import PreprocessPipeline
 from qiqc.utils import pad_sequence, set_seed, parallel_apply
 
 
@@ -62,7 +61,7 @@ def train(config):
     modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
     build_models = modelconf.build_models
     build_sampler = modelconf.build_sampler
-    SentenceFeature = modelconf.SentenceFeature
+    sent2vec = modelconf.build_sentence_feature()
 
     print(config)
     start = time.time()
@@ -70,66 +69,64 @@ def train(config):
     train_df, submit_df = load_qiqc(n_rows=config['n_rows'])
     preprocessor = build_preprocessor(config['preprocessors'])
     tokenizer = build_tokenizer(config['tokenizer'])
+    train_dataset = QIQCDataset(train_df)
+    submit_dataset = QIQCDataset(submit_df)
 
     print('Preprocess texts...')
-    tokenize = lambda x: x.apply(lambda x: tokenizer(preprocessor(x)))  # NOQA
-    sentence_feature = SentenceFeature()
-    train_df['tokens'] = parallel_apply(train_df.question_text, tokenize)
-    submit_df['tokens'] = parallel_apply(submit_df.question_text, tokenize)
-    if config['model']['encoder']['sentence_features'] > 0:
-        train_df['_X2'] = parallel_apply(
-            train_df.question_text, lambda x: x.apply(sentence_feature))
-        submit_df['_X2'] = parallel_apply(
-            submit_df.question_text, lambda x: x.apply(sentence_feature))
-        sentence_feature.transform(train_df, submit_df)
-    else:
-        train_df['X2'], submit_df['X2'] = np.nan, np.nan
-    all_df = pd.concat([train_df, submit_df], ignore_index=True, sort=False)
+    tokenize = PreprocessPipeline(preprocessor, tokenizer)
+    train_dataset.preprocess(
+        'question_text', 'tokens', tokenize, parallel_apply)
+    submit_dataset.preprocess(
+        'question_text', 'tokens', tokenize, parallel_apply)
+
+    if sent2vec is not None:
+        print('Extract sentence features...')
+        applyfunc = lambda x, func: x.apply(func)  # NOQA
+        train_dataset.preprocess(
+            'question_text', '_X2', sent2vec.extract_features, applyfunc)
+        submit_dataset.preprocess(
+            'question_text', '_X2', sent2vec.extract_features, applyfunc)
+        train_dataset.preprocess(
+            '_X2', 'X2', sent2vec.fit_transform, applyfunc)
+        submit_dataset.preprocess(
+            '_X2', 'X2', sent2vec.transform, applyfunc)
 
     print('Build vocabulary...')
-    vocab = Dictionary(all_df.tokens.values, prune_at=None)
-    dfs = sorted(vocab.dfs.items(), key=lambda x: x[1], reverse=True)
-    token2id = dict(
-        **{'<PAD>': 0},
-        **dict([(vocab[idx], i + 1) for i, (idx, freq) in enumerate(dfs)]))
-    word_freq = dict(
-        **{'<PAD>': 1},
-        **dict([(vocab[idx], freq) for idx, freq in dfs]))
-    assert token2id['<PAD>'] == 0
+    vocab = WordVocab()
+    vocab.add_documents(train_dataset.positives.tokens, 'pos')
+    vocab.add_documents(train_dataset.negatives.tokens, 'neg')
+    vocab.add_documents(submit_dataset.df.tokens, 'submit')
+    vocab.build()
 
-    train_df['token_ids'] = train_df.tokens.apply(
-        lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
-    submit_df['token_ids'] = submit_df.tokens.apply(
-        lambda xs: pad_sequence([token2id[x] for x in xs], config['maxlen']))
+    print('Build token ids...')
+    applyfunc = lambda x, func: x.apply(func)  # NOQA
+    token2id = lambda xs: pad_sequence(  # NOQA
+        [vocab.token2id[x] for x in xs], config['maxlen'])
+    train_dataset.preprocess(
+        'tokens', 'token_ids', token2id, applyfunc)
+    submit_dataset.preprocess(
+        'tokens', 'token_ids', token2id, applyfunc)
 
     # Train : Test split for holdout training
     if config['holdout']:
         train_df, test_df = sklearn.model_selection.train_test_split(
-            train_df, test_size=0.1, random_state=0)
+            train_dataset.df, test_size=0.1, random_state=0)
         train_df.reset_index(drop=True, inplace=True)
         test_df.reset_index(drop=True, inplace=True)
+        train_dataset = QIQCDataset(train_df)
+        test_dataset = QIQCDataset(test_df)
+        test_dataset.build(config['device'])
 
-        test_X = torch.Tensor(test_df.token_ids.tolist()).type(torch.long)
-        test_X = test_X.to(config['device'])
-        test_X2 = torch.Tensor(test_df.X2.tolist()).type(torch.float)
-        test_X2 = test_X2.to(config['device'])
-        test_t = test_df.target[:, None]
-
-    train_X = torch.Tensor(train_df.token_ids.tolist()).type(torch.long)
-    train_X2 = torch.Tensor(train_df.X2.tolist()).type(torch.float)
-    train_W = torch.Tensor(train_df.weights).type(torch.float)
-    train_t = torch.Tensor(train_df.target[:, None]).type(torch.float)
-
-    submit_X = torch.Tensor(submit_df.token_ids).type(torch.long)
-    submit_X = submit_X.to(config['device'])
-    submit_X2 = torch.Tensor(submit_df.X2.tolist()).type(torch.float)
-    submit_X2 = submit_X2.to(config['device'])
+    train_dataset.build(config['device'])
+    submit_dataset.build(config['device'])
 
     print('Load pretrained vectors and build models...')
+    all_df = pd.concat(
+        [train_dataset.df, submit_dataset.df], ignore_index=True, sort=False)
     pretrained_vectors = load_pretrained_vectors(
-        config['model']['embed']['src'], token2id, test=config['test'])
+        config['model']['embed']['src'], vocab.token2id, test=config['test'])
     models, unk_indices = build_models(
-        config, word_freq, token2id, pretrained_vectors, all_df)
+        config, vocab, pretrained_vectors, all_df)
 
     print('Start training...')
     splitter = sklearn.model_selection.StratifiedKFold(
@@ -137,25 +134,13 @@ def train(config):
     train_results, valid_results = [], []
     best_models = []
     for i_cv, (train_indices, valid_indices) in enumerate(
-            splitter.split(train_X, train_t)):
+            splitter.split(train_dataset.df, train_dataset.df.target)):
         if config['cv_part'] is not None and i_cv >= config['cv_part']:
             break
-        _train_X = train_X[train_indices].to(config['device'])
-        _train_X2 = train_X2[train_indices].to(config['device'])
-        _train_W = train_W[train_indices].to(config['device'])
-        _train_t = train_t[train_indices].to(config['device'])
-
-        _valid_X = train_X[valid_indices].to(config['device'])
-        _valid_X2 = train_X2[valid_indices].to(config['device'])
-        _valid_W = train_W[valid_indices].to(config['device'])
-        _valid_t = train_t[valid_indices].to(config['device'])
-
-        train_dataset = torch.utils.data.TensorDataset(
-            _train_X, _train_X2, _train_t, _train_W)
-        valid_dataset = torch.utils.data.TensorDataset(
-            _valid_X, _valid_X2, _valid_t, _valid_W)
+        train_tensor = train_dataset.build_labeled_dataset(train_indices)
+        valid_tensor = train_dataset.build_labeled_dataset(valid_indices)
         valid_iter = DataLoader(
-            valid_dataset, batch_size=config['batchsize_valid'])
+            valid_tensor, batch_size=config['batchsize_valid'])
 
         model = models.pop(0)
         model = model.to_device(config['device'])
@@ -172,7 +157,7 @@ def train(config):
                 config['batchsize'], i_cv, epoch,
                 train_df.weights[train_indices].values)
             train_iter = DataLoader(
-                train_dataset, sampler=sampler, drop_last=True,
+                train_tensor, sampler=sampler, drop_last=True,
                 batch_size=config['batchsize'], shuffle=sampler is None)
             _summary = []
 
@@ -222,6 +207,8 @@ def train(config):
         results=valid_results,
     )
 
+    train_X, train_X2, train_t = \
+        train_dataset.X, train_dataset.X2, train_dataset.t
     ensembler.fit(train_X, train_X2, train_t, config['ensembler']['test_size'])
     scores = dict(
         valid_fbeta=np.array([r.best_fbeta for r in valid_results]).mean(),
@@ -232,7 +219,8 @@ def train(config):
     )
 
     if config['holdout']:
-        df = test_df
+        test_X, test_X2, test_t = \
+            test_dataset.X, test_dataset.X2, test_dataset.t
         y, t = ensembler.predict_proba(test_X, test_X2), test_t
         y_pred = y > ensembler.threshold
         y_pred_cv = y > ensembler.threshold_cv
@@ -253,6 +241,7 @@ def train(config):
         df, t = train_df.iloc[indices].copy(), train_t.numpy()[indices]
         y = np.concatenate([r.best_ys for r in valid_results])
         y_pred = y > ensembler.threshold
+        word_freq = vocab.word_freq
         unk_freq = dict(np.array(list(word_freq.items()))[unk_indices])
         df['y'] = y - ensembler.threshold
         df['t'] = df.target
@@ -280,7 +269,7 @@ def train(config):
     print(scores)
 
     # Predict submit datasets
-    submit_y = ensembler.predict(submit_X, submit_X2)
+    submit_y = ensembler.predict(submit_dataset.X, submit_dataset.X2)
     submit_df['prediction'] = submit_y
     submit_df = submit_df[['qid', 'prediction']]
     submit_df.to_csv(config['outdir'] / 'submission.csv', index=False)
