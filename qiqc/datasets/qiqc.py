@@ -1,6 +1,8 @@
 import os
 
+import numpy as np
 import pandas as pd
+import torch
 
 
 def load_qiqc(n_rows=None):
@@ -14,3 +16,44 @@ def load_qiqc(n_rows=None):
     train_df['weights'] = train_df.target.apply(lambda t: 1 / n_labels[t])
 
     return train_df, submit_df
+
+
+class QIQCDataset(object):
+
+    def __init__(self, df):
+        self.df = df
+
+    def preprocess(self, src_col, new_col, func, applyfunc):
+        if src_col is not None:
+            src = self.df[src_col]
+        else:
+            src = self.df
+        self.df[new_col] = applyfunc(src, func)
+
+    @property
+    def positives(self):
+        return self.df[self.df.target == 1]
+
+    @property
+    def negatives(self):
+        return self.df[self.df.target == 0]
+
+    def build(self, device):
+        self._X = np.array(self.df.token_ids.tolist(), 'i')
+        self.X = torch.Tensor(self._X).type(torch.long).to(device)
+        if 'target' in self.df:
+            self._t = self.df.target[:, None]
+            self._W = self.df.weights
+            self.t = torch.Tensor(self._t).type(torch.float).to(device)
+            self.W = torch.Tensor(self._W).type(torch.float).to(device)
+        if 'X2' in self.df:
+            self._X2 = np.array(self.df.X2.tolist(), 'f')
+            self.X2 = torch.Tensor(self._X2).type(torch.float).to(device)
+        else:
+            self._X2 = np.zeros((self._X.shape[0], 1))
+            self.X2 = torch.Tensor(self._X2).type(torch.float).to(device)
+
+    def build_labeled_dataset(self, indices):
+        return torch.utils.data.TensorDataset(
+            self.X[indices], self.X2[indices],
+            self.t[indices], self.W[indices])
