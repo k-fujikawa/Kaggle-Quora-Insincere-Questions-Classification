@@ -27,24 +27,33 @@ def load_pretrained_vector(name, token2id, test=False):
 class BasePretrainedVector(object):
 
     @classmethod
-    def load(cls, token2id, test=False):
-        limit = 1000 if test else None
+    def load(cls, token2id, test=False, limit=None):
+        embed_shape = (len(token2id), 300)
         freqs = np.zeros((len(token2id)), dtype='f')
-        vectors = np.zeros((len(token2id), 300), dtype='f')
-        for i, o in enumerate(
-                open(cls.path, encoding="utf8", errors='ignore')):
-            token, *vector = o.split(' ')
-            token = str.lower(token)
-            if limit is not None and i > limit:
-                break
-            if len(o) <= 100 or token not in token2id:
-                continue
-            freqs[token2id[token]] += 1
-            vectors[token2id[token]] += np.array(vector, 'f')
+        vectors = np.zeros(embed_shape, dtype='f')
+
+        if test:
+            np.random.seed(0)
+            vectors = np.random.normal(0, 1, embed_shape)
+            vectors[0] = 0
+            vectors[len(token2id) // 2:] = 0
+        else:
+            vectors = np.zeros(embed_shape, dtype='f')
+            path = f'{os.environ["DATADIR"]}/{cls.path}'
+            for i, o in enumerate(
+                    open(path, encoding="utf8", errors='ignore')):
+                token, *vector = o.split(' ')
+                token = str.lower(token)
+                if token not in token2id or len(o) <= 100:
+                    continue
+                if limit is not None and i > limit:
+                    break
+                freqs[token2id[token]] += 1
+                vectors[token2id[token]] += np.array(vector, 'f')
 
         vectors[freqs != 0] /= freqs[freqs != 0][:, None]
         vec = KeyedVectors(300)
-        vec.add(list(token2id.keys()), vectors)
+        vec.add(list(token2id.keys()), vectors, replace=True)
 
         return vec
 
@@ -52,28 +61,29 @@ class BasePretrainedVector(object):
 class GNewsPretrainedVector(object):
 
     name = 'GoogleNews-vectors-negative300'
-    path = f'{os.environ["DATADIR"]}/embeddings/{name}/{name}.bin'
+    path = f'embeddings/{name}/{name}.bin'
 
     @classmethod
     def load(cls, tokens, limit=None):
         raise NotImplementedError
+        path = f'{os.environ["DATADIR"]}/{cls.path}'
         return KeyedVectors.load_word2vec_format(
-            cls.path, binary=True, limit=limit)
+            path, binary=True, limit=limit)
 
 
 class WNewsPretrainedVector(BasePretrainedVector):
 
     name = 'wiki-news-300d-1M'
-    path = f'{os.environ["DATADIR"]}/embeddings/{name}/{name}.vec'
+    path = f'embeddings/{name}/{name}.vec'
 
 
 class ParagramPretrainedVector(BasePretrainedVector):
 
     name = 'paragram_300_sl999'
-    path = f'{os.environ["DATADIR"]}/embeddings/{name}/{name}.txt'
+    path = f'embeddings/{name}/{name}.txt'
 
 
 class GlovePretrainedVector(BasePretrainedVector):
 
     name = 'glove.840B.300d'
-    path = f'{os.environ["DATADIR"]}/embeddings/{name}/{name}.txt'
+    path = f'embeddings/{name}/{name}.txt'
