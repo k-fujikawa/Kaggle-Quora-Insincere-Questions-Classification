@@ -28,10 +28,11 @@ model:
       - paragram
     finetune:
       True
-    assign_noise:
-      True
+    add_noise:
+      unk&hfq
     standardize:
       False
+    extra_features:
     n_embed: 300
     dropout1d: 0.2
     dropout2d: 0.

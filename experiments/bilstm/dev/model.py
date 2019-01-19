@@ -7,6 +7,7 @@ from gensim.models import Word2Vec
 from qiqc.builder import build_attention
 from qiqc.builder import build_aggregator
 from qiqc.builder import build_encoder
+from qiqc.features import WordFeature
 from qiqc.models import BinaryClassifier
 
 
@@ -14,64 +15,38 @@ def build_sampler(batchsize, i_cv, epoch, weights):
     return None
 
 
-def build_models(config, word_freq, token2id, pretrained_vectors, all_df):
+def build_models(config, word_freq, token2id, pretrained_vectors, df):
     models = []
     pos_weight = torch.FloatTensor([config['pos_weight']]).to(config['device'])
     external_vectors = np.stack(
         [wv.vectors for wv in pretrained_vectors.values()])
     external_vectors = external_vectors.mean(axis=0)
-
-    unk_indices = (external_vectors == 0).all(axis=1)
-    known_indices = ~unk_indices
-    lfq_indices = np.array(list(word_freq.values())) < \
-        config['vocab']['min_count']
-    trainable_unk_indices = ~lfq_indices & unk_indices
-    mean = external_vectors[known_indices].mean()
-    std = external_vectors[known_indices].std()
+    word_features = WordFeature(
+        word_freq, token2id, external_vectors, config['vocab']['min_count'])
 
     if config['model']['embed']['finetune']:
-        wv_finetuned = finetune_embedding(
-            Word2Vec, word_freq, external_vectors, all_df)
+        word_features.finetune(Word2Vec, df)
+
+    if config['model']['embed']['extra_features'] is not None:
+        word_features.prepare_extra_features(
+            df, token2id, config['model']['embed']['extra_features'])
 
     for i in range(config['cv']):
-        embedding_vectors = external_vectors.copy()
-        # Assign noise vectors to unknown high frequency tokens
-        if config['model']['embed']['assign_noise']:
-            embedding_vectors[trainable_unk_indices] += np.random.normal(
-                mean, std, embedding_vectors[trainable_unk_indices].shape)
-
-        # Blend external vectors with local finetuned vectors
-        if config['model']['embed']['finetune']:
-            embedding_vectors += wv_finetuned.vectors
-            embedding_vectors /= 2
-
-        embedding_vectors[lfq_indices & unk_indices] = 0
+        add_noise = config['model']['embed']['add_noise']
+        embedding_vectors = word_features.build_feature(add_noise=add_noise)
         embedding = nn.Embedding.from_pretrained(
             torch.Tensor(embedding_vectors), freeze=True)
         lossfunc = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         model = build_model(config, embedding, lossfunc)
         models.append(model)
 
-    return models, unk_indices
+    return models, word_features.unk
 
 
 def build_model(config, embedding, lossfunc):
     encoder = Encoder(config['model'], embedding)
     clf = BinaryClassifier(config['model'], encoder, lossfunc)
     return clf
-
-
-def finetune_embedding(w2vmodel, word_freq, initialW, df):
-    n_embed = 300
-    tokens = df.tokens.values
-    w2v = w2vmodel(
-        size=n_embed, min_count=1, workers=1, sorted_vocab=0)
-    w2v.build_vocab_from_freq(word_freq)
-    w2v.wv.vectors[:] = initialW
-    w2v.trainables.syn1neg[:] = initialW
-    w2v.train(tokens, total_examples=len(tokens), epochs=5)
-
-    return w2v.wv
 
 
 class SentenceFeature(object):
@@ -103,6 +78,7 @@ class Encoder(nn.Module):
         super().__init__()
         self.config = config
         self.embedding = embedding
+        config['encoder']['n_input'] = self.embedding.embedding_dim
         if self.config['embed']['dropout1d'] > 0:
             self.dropout1d = nn.Dropout(config['embed']['dropout1d'])
         if self.config['embed']['dropout2d'] > 0:
