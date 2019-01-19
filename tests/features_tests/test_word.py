@@ -10,16 +10,23 @@ import qiqc
 class TestWordFeatures(TestCase):
 
     def test_build_feature(self):
-        token2id = {c: i for i, c in enumerate('abcdefghij')}
-        word_freq = {c: i + 1 for i, c in enumerate('abcdefghij')}
-        min_count = 5
-        unk = np.arange(len(token2id)) % 2 == 0
-        lfq = np.array([i < min_count for i in word_freq.values()])
-        embed_shape = (len(token2id), 300)
+        vocab = qiqc.features.WordVocab()
+        vocab.add_documents([
+            list('aa'),
+            list('ab'),
+            list('abc'),
+            list('abcd'),
+            list('abcde`'),
+        ], 'test')
+        vocab.build()
+        min_count = 3
+        unk = np.arange(len(vocab)) % 2 == 0
+        lfq = np.array([i < min_count for i in vocab.word_freq.values()])
+        embed_shape = (len(vocab), 300)
         pretrained_vectors = np.random.normal(0, 1, embed_shape)
         pretrained_vectors[unk] = 0
         feature = qiqc.features.WordFeature(
-            word_freq, token2id, pretrained_vectors, min_count)
+            vocab, pretrained_vectors, min_count)
 
         # Basic case
         vectors = feature.build_feature(add_noise=None)

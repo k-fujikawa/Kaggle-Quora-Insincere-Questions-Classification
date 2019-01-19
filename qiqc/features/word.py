@@ -1,22 +1,57 @@
+from collections import Counter, defaultdict
+
 import numpy as np
 import pandas as pd
-from gensim.corpora import Dictionary
 from scipy.stats import chi2_contingency
 
 from qiqc.utils import parallel_apply
 
 
+class WordVocab(object):
+
+    def __init__(self):
+        self.counter = Counter()
+        self.n_documents = 0
+        self._counters = {}
+        self._n_documents = defaultdict(int)
+
+    def __len__(self):
+        return len(self.token2id)
+
+    def add_documents(self, documents, name):
+        self._counters[name] = Counter()
+        for document in documents:
+            bow = set(document)
+            self._counters[name].update(bow)
+            self.counter.update(bow)
+            self.n_documents += 1
+            self._n_documents[name] += 1
+
+    def build(self):
+        counter = dict(self.counter.most_common())
+        self.word_freq = {
+            **{'<PAD>': 1},
+            **counter
+        }
+        self.token2id = {
+            **{'<PAD>': 0},
+            **{word: i + 1 for i, word in enumerate(counter)}
+        }
+
+
 class WordFeature(object):
 
-    def __init__(self, word_freq, token2id, pretrained_vectors, min_count):
-        self.word_freq = word_freq
-        self.token2id = token2id
+    def __init__(self, vocab, pretrained_vectors, min_count):
+        self.vocab = vocab
+        self.word_freq = vocab.word_freq
+        self.token2id = vocab.token2id
         self.pretrained_vectors = pretrained_vectors
         self.finetuned_vectors = None
+        self.min_count = min_count
 
         self.unk = (pretrained_vectors == 0).all(axis=1)
         self.known = ~self.unk
-        self.lfq = np.array(list(word_freq.values())) < min_count
+        self.lfq = np.array(list(vocab.word_freq.values())) < min_count
         self.hfq = ~self.lfq
         self.mean = pretrained_vectors[self.known].mean()
         self.std = pretrained_vectors[self.known].std()
@@ -42,22 +77,20 @@ class WordFeature(object):
 
     # TODO: Fix to build dictionary for calculation efficiency
     def _prepare_chi2(self, df, token2id, threshold=0.01):
-        df_pos = df[df.target == 1]
-        df_neg = df[df.target == 0]
-        vocab_pos = Dictionary(df_pos.tokens.values, prune_at=None)
-        vocab_neg = Dictionary(df_neg.tokens.values, prune_at=None)
+        vocab_pos = self.vocab._counters['pos']
+        vocab_neg = self.vocab._counters['neg']
         counts = pd.DataFrame({'tokens': list(token2id.keys())})
         counts['TP'], counts['FP'] = 0, 0
 
-        idxmap = [token2id[vocab_pos[k]] for k, v in vocab_pos.dfs.items()]
-        counts.loc[idxmap, 'TP'] = list(vocab_pos.dfs.values())
-        idxmap = [token2id[vocab_neg[k]] for k, v in vocab_neg.dfs.items()]
-        counts.loc[idxmap, 'FP'] = list(vocab_neg.dfs.values())
+        idxmap = [token2id[k] for k, v in vocab_pos.items()]
+        counts.loc[idxmap, 'TP'] = list(vocab_pos.values())
+        idxmap = [token2id[k] for k, v in vocab_neg.items()]
+        counts.loc[idxmap, 'FP'] = list(vocab_neg.values())
 
-        counts['FN'] = len(df_pos) - counts.TP
-        counts['TN'] = len(df_neg) - counts.FP
+        counts['FN'] = self.vocab._n_documents['pos'] - counts.TP
+        counts['TN'] = self.vocab._n_documents['neg'] - counts.FP
         counts['TP/.P'] = counts.TP / (counts.TP + counts.FP)
-        class_ratio = sum(df.target == 1) / len(df)
+        class_ratio = self.vocab._n_documents['pos'] / self.vocab.n_documents
 
         def chi2_func(x):
             if x.TN == 0 or x.TP == 0:
@@ -66,11 +99,10 @@ class WordFeature(object):
                 return chi2_contingency(np.array(
                     [[x.TP, x.FP], [x.FN, x.TN]]))[1]
 
-        counts['chi2_p'] = parallel_apply(
-            counts, lambda x: x.apply(chi2_func, axis=1))
+        counts['chi2_p'] = parallel_apply(counts, chi2_func, axis=1)
         counts['feature'] = 0
         is_important = (counts.chi2_p < threshold) & \
-            (counts['TP/.P'] > class_ratio)
+            (counts['TP/.P'] > class_ratio) & (counts.TP >= self.min_count)
         counts.loc[is_important, 'feature'] = 1
         return counts.feature[:, None]
 
