@@ -21,7 +21,7 @@ class WordVocab(object):
     def add_documents(self, documents, name):
         self._counters[name] = Counter()
         for document in documents:
-            bow = set(document)
+            bow = dict.fromkeys(document, 1)
             self._counters[name].update(bow)
             self.counter.update(bow)
             self.n_documents += 1
@@ -31,7 +31,7 @@ class WordVocab(object):
         counter = dict(self.counter.most_common())
         self.word_freq = {
             **{'<PAD>': 1},
-            **counter
+            **counter,
         }
         self.token2id = {
             **{'<PAD>': 0},

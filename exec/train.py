@@ -93,8 +93,7 @@ def train(config):
 
     print('Build vocabulary...')
     vocab = WordVocab()
-    vocab.add_documents(train_dataset.positives.tokens, 'pos')
-    vocab.add_documents(train_dataset.negatives.tokens, 'neg')
+    vocab.add_documents(train_dataset.df.tokens, 'train')
     vocab.add_documents(submit_dataset.df.tokens, 'submit')
     vocab.build()
 
@@ -220,7 +219,7 @@ def train(config):
 
     if config['holdout']:
         test_X, test_X2, test_t = \
-            test_dataset.X, test_dataset.X2, test_dataset.t
+            test_dataset._X, test_dataset._X2, test_dataset._t
         y, t = ensembler.predict_proba(test_X, test_X2), test_t
         y_pred = y > ensembler.threshold
         y_pred_cv = y > ensembler.threshold_cv
@@ -235,10 +234,12 @@ def train(config):
         ))
 
     if config['logging']:
+        train_X, train_X2, train_t = \
+            train_dataset._X, train_dataset._X2, train_dataset._t
         part = config['cv'] if config['cv_part'] is None else config['cv_part']
         indices = np.concatenate(
             [s[1] for s in splitter.split(train_X, train_t)][:part])
-        df, t = train_df.iloc[indices].copy(), train_t.numpy()[indices]
+        df, t = train_dataset.df.iloc[indices].copy(), train_t[indices]
         y = np.concatenate([r.best_ys for r in valid_results])
         y_pred = y > ensembler.threshold
         word_freq = vocab.word_freq
