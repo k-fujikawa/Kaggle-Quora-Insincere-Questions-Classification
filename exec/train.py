@@ -109,7 +109,7 @@ def train(config):
     # Train : Test split for holdout training
     if config['holdout']:
         train_df, test_df = sklearn.model_selection.train_test_split(
-            train_dataset.df, test_size=0.1, random_state=0)
+            train_dataset.df, test_size=0.1, random_state=config['seed'])
         train_df.reset_index(drop=True, inplace=True)
         test_df.reset_index(drop=True, inplace=True)
         train_dataset = QIQCDataset(train_df)

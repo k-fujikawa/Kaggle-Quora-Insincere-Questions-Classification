@@ -1,13 +1,13 @@
+from copy import deepcopy
+
 import torch
 import numpy as np
 from torch import nn
 
-from gensim.models import Word2Vec
-
 from qiqc.builder import build_attention
 from qiqc.builder import build_aggregator
 from qiqc.builder import build_encoder
-from qiqc.features import WordFeature
+from qiqc.features import WordFeatureTransformer
 from qiqc.models import BinaryClassifier
 
 
@@ -20,27 +20,55 @@ def build_models(config, vocab, pretrained_vectors, df):
     pos_weight = torch.FloatTensor([config['pos_weight']]).to(config['device'])
     external_vectors = np.stack(
         [wv.vectors for wv in pretrained_vectors.values()])
-    external_vectors = external_vectors.mean(axis=0)
-    word_features = WordFeature(
-        vocab, external_vectors, config['vocab']['min_count'])
+    embeddings = {'external': external_vectors.mean(axis=0)}
+    extra = None
+    transformer = WordFeatureTransformer(
+        vocab, embeddings['external'], config['vocab']['min_count'])
 
-    if config['model']['embed']['finetune']:
-        word_features.finetune(Word2Vec, df)
+    # Fine-tuning
+    if config['model']['embed']['finetune']['skipgram'] is not None:
+        embeddings['skipgram'] = transformer.finetune_skipgram(
+            df, config['model']['embed']['finetune']['skipgram'])
+    if config['model']['embed']['finetune']['fasttext'] is not None:
+        embeddings['fasttext'] = transformer.finetune_fasttext(
+            df, config['model']['embed']['finetune']['fasttext'])
 
+    # Standardize
+    assert config['model']['embed']['standardize'] in {'vocab', 'freq', None}
+    if config['model']['embed']['standardize'] == 'vocab':
+        embeddings = {k: transformer.standardize(v)
+                      for k, v in embeddings.items()}
+    elif config['model']['embed']['standardize'] == 'freq':
+        embeddings = {k: transformer.standardize_freq(v)
+                      for k, v in embeddings.items()}
+
+    # Extra features
     if config['model']['embed']['extra_features'] is not None:
-        word_features.prepare_extra_features(
+        extra = transformer.prepare_extra_features(
             df, vocab.token2id, config['model']['embed']['extra_features'])
 
+    assert config['model']['embed']['unk_hfq'] in {'noise', None}
     for i in range(config['cv']):
-        add_noise = config['model']['embed']['add_noise']
-        embedding_vectors = word_features.build_feature(add_noise=add_noise)
+        _embeddings = deepcopy(embeddings)
+        if config['model']['embed']['unk_hfq'] == 'noise':
+            indices = transformer.unk & transformer.hfq
+            _embeddings['external'][indices] += np.random.normal(
+                transformer.mean, transformer.std,
+                _embeddings['external'][indices].shape)
+        embedding_matrix = np.stack(list(_embeddings.values())).mean(axis=0)
+        embedding_matrix[transformer.lfq & transformer.unk] = 0
+
+        if config['model']['embed']['extra_features'] is not None:
+            embedding_matrix = np.concatenate(
+                [embedding_matrix, extra], axis=1)
+
         embedding = nn.Embedding.from_pretrained(
-            torch.Tensor(embedding_vectors), freeze=True)
+            torch.Tensor(embedding_matrix), freeze=True)
         lossfunc = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         model = build_model(config, embedding, lossfunc)
         models.append(model)
 
-    return models, word_features.unk
+    return models, transformer.unk
 
 
 def build_model(config, embedding, lossfunc):

@@ -27,11 +27,15 @@ model:
       - glove
       - paragram
     finetune:
-      True
-    add_noise:
-      unk&hfq
+      skipgram:
+        min_count: 1
+        workers: 1
+        sorted_vocab: 0
+        size: 300
+        iter: 5
+      fasttext:
+    unk_hfq: noise
     standardize:
-      False
     extra_features:
     n_embed: 300
     dropout1d: 0.2

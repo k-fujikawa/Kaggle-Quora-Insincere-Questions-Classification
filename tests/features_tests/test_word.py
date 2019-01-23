@@ -2,47 +2,80 @@ from unittest import TestCase
 
 import numpy as np
 import pandas as pd
-from gensim.models import Word2Vec
 
 import qiqc
 
 
 class TestWordFeatures(TestCase):
 
-    def test_build_feature(self):
-        vocab = qiqc.features.WordVocab()
-        vocab.add_documents([
+    def setUp(self):
+        self.vocab = qiqc.features.WordVocab()
+        self.vocab.add_documents([
             list('aa'),
             list('ab'),
             list('abc'),
             list('abcd'),
-            list('abcde`'),
+            list('abcde'),
         ], 'test')
-        vocab.build()
-        min_count = 3
-        unk = np.arange(len(vocab)) % 2 == 0
-        lfq = np.array([i < min_count for i in vocab.word_freq.values()])
-        embed_shape = (len(vocab), 300)
+        self.vocab.build()
+        self.min_count = 3
+        unk = np.arange(len(self.vocab)) % 2 == 0
+        embed_shape = (len(self.vocab), 300)
         pretrained_vectors = np.random.normal(0, 1, embed_shape)
         pretrained_vectors[unk] = 0
-        feature = qiqc.features.WordFeature(
-            vocab, pretrained_vectors, min_count)
+        self.transformer = qiqc.features.WordFeatureTransformer(
+            self.vocab, pretrained_vectors, self.min_count)
 
-        # Basic case
-        vectors = feature.build_feature(add_noise=None)
-        np.testing.assert_allclose(vectors, pretrained_vectors)
-
-        # Test to add noise for high frequent word vectors
-        vectors = feature.build_feature(add_noise='unk&hfq')
-        is_equal = vectors == pretrained_vectors
-        np.testing.assert_equal(vectors[lfq & unk], 0)
-        np.testing.assert_equal(is_equal.all(axis=1), lfq | ~unk)
-
-        # Test skipgram finetuning
+    def test_finetune_skipgram(self):
         df = pd.DataFrame(
             {'tokens': [list('abcd'), list('abcdefg'), list('adefg')]})
-        feature.finetune(Word2Vec, df)
-        vectors = feature.build_feature(add_noise='unk&hfq')
-        is_equal = vectors == pretrained_vectors
-        np.testing.assert_equal(vectors[lfq & unk], 0)
-        np.testing.assert_equal(is_equal.all(axis=1), lfq & unk)
+        params = {'size': 300, 'iter': 1, 'min_count': self.min_count}
+        vectors = self.transformer.finetune_skipgram(df, params)
+        lfq = self.transformer.lfq
+        unk = self.transformer.unk
+        is_equal = vectors == self.transformer.initialW
+        np.testing.assert_equal((vectors == 0).all(axis=1), unk & lfq)
+        np.testing.assert_equal(is_equal.all(axis=1), lfq)
+
+    def test_finetune_fasttext(self):
+        df = pd.DataFrame(
+            {'tokens': [list('abcd'), list('abcdefg'), list('adefg')]})
+        params = {'size': 300, 'iter': 1, 'min_count': self.min_count,
+                  'min_n': 1}
+        vectors = self.transformer.finetune_fasttext(df, params)
+        is_equal = vectors == self.transformer.initialW
+        np.testing.assert_equal((vectors == 0).all(axis=1), False)
+        np.testing.assert_equal(is_equal.all(axis=1), False)
+
+    def test_standardize(self):
+        unk = self.transformer.unk
+        n_vocab, n_embed = len(self.vocab), 300
+        embedding = np.random.uniform(size=(n_vocab, n_embed))
+        embedding[unk] = 0
+        _embedding = self.transformer.standardize(embedding)
+        np.testing.assert_equal((_embedding == 0).all(axis=1), unk)
+        np.testing.assert_almost_equal(_embedding[~unk].mean(axis=0), 0)
+        np.testing.assert_almost_equal(_embedding[~unk].std(axis=0), 1)
+
+    def test_standardize_freq(self):
+        unk = self.transformer.unk
+        n_vocab, n_embed = len(self.vocab), 300
+        embedding = np.random.uniform(size=(n_vocab, n_embed))
+        embedding[unk] = 0
+        _embedding = self.transformer.standardize_freq(embedding)
+
+        freqs = np.array(list(self.vocab.word_freq.values()))[~unk]
+        _embedding_repeat = np.repeat(embedding[~unk], freqs, axis=0)
+        _mean = _embedding_repeat.mean(axis=0)
+        _std = _embedding_repeat.std(axis=0)
+
+        np.testing.assert_equal((_embedding == 0).all(axis=1), unk)
+        np.testing.assert_almost_equal(
+            (_embedding[~unk] * _std) + _mean, embedding[~unk])
+
+        self.transformer.vocab.word_freq = {
+            k: 1 for k in self.transformer.word_freq}
+        _embedding = self.transformer.standardize_freq(embedding)
+        np.testing.assert_equal((_embedding == 0).all(axis=1), unk)
+        np.testing.assert_almost_equal(_embedding[~unk].mean(axis=0), 0)
+        np.testing.assert_almost_equal(_embedding[~unk].std(axis=0), 1)
