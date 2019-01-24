@@ -29,8 +29,10 @@ def train_gridsearch(config, train):
     scores.to_csv(f'{outdir}/result.tsv', sep='\t')
     if 'seed' in hyperparams:
         names = [k for k in hyperparams.keys() if k != 'seed']
+        scores[names] = scores[names].astype(str)
         if len(names) > 0:
             scores = scores.groupby(names).agg(['mean', 'std'])
             print(scores)
         else:
             print(scores.describe())
+        scores.to_csv(f'{outdir}/result_summary.tsv', sep='\t')

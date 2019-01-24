@@ -44,6 +44,7 @@ def main(args=None):
         config['batchsize'] = 64
         config['epochs'] = 3
         config['cv_part'] = 2
+        config['ensembler']['test_size'] = 1
     else:
         config['n_rows'] = None
     qiqc.utils.rmtree_after_confirmation(config['outdir'], args.test)
@@ -108,12 +109,14 @@ def train(config):
 
     # Train : Test split for holdout training
     if config['holdout']:
-        train_df, test_df = sklearn.model_selection.train_test_split(
-            train_dataset.df, test_size=0.1, random_state=config['seed'])
-        train_df.reset_index(drop=True, inplace=True)
-        test_df.reset_index(drop=True, inplace=True)
-        train_dataset = QIQCDataset(train_df)
-        test_dataset = QIQCDataset(test_df)
+        splitter = sklearn.model_selection.StratifiedShuffleSplit(
+            n_splits=1, test_size=0.1, random_state=config['seed'])
+        train_indices, test_indices = list(splitter.split(
+            train_dataset.df, train_dataset.df.target))[0]
+        train_dataset = QIQCDataset(
+            train_df.iloc[train_indices].reset_index(drop=True))
+        test_dataset = QIQCDataset(
+            train_df.iloc[test_indices].reset_index(drop=True))
         test_dataset.build(config['device'])
 
     train_dataset.build(config['device'])
@@ -154,7 +157,7 @@ def train(config):
             epoch_start = time.time()
             sampler = build_sampler(
                 config['batchsize'], i_cv, epoch,
-                train_df.weights[train_indices].values)
+                train_dataset._W[train_indices].values)
             train_iter = DataLoader(
                 train_tensor, sampler=sampler, drop_last=True,
                 batch_size=config['batchsize'], shuffle=sampler is None)
@@ -219,7 +222,7 @@ def train(config):
 
     if config['holdout']:
         test_X, test_X2, test_t = \
-            test_dataset._X, test_dataset._X2, test_dataset._t
+            test_dataset.X, test_dataset.X2, test_dataset._t
         y, t = ensembler.predict_proba(test_X, test_X2), test_t
         y_pred = y > ensembler.threshold
         y_pred_cv = y > ensembler.threshold_cv
