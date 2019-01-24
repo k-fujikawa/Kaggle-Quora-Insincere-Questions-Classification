@@ -1,14 +1,34 @@
+from copy import deepcopy
+
 import torch
 import numpy as np
 from torch import nn
 
-from gensim.models import Word2Vec
-
 from qiqc.builder import build_attention
 from qiqc.builder import build_aggregator
 from qiqc.builder import build_encoder
-from qiqc.features import WordFeature
+from qiqc.features import WordFeatureTransformer
 from qiqc.models import BinaryClassifier
+
+
+skipgram = {
+    'min_count': 5,
+    'workers': 1,
+    'sorted_vocab': 0,
+    'size': 300,
+    'iter': 5,
+}
+fasttext = {
+    'min_count': 5,
+    'workers': 1,
+    'sorted_vocab': 0,
+    'size': 300,
+    'iter': 1,
+    'min_n': 3,
+    'max_n': 5,
+    'alpha': 0.1,
+    'sg': 1,
+}
 
 
 def build_sampler(batchsize, i_cv, epoch, weights):
@@ -20,27 +40,54 @@ def build_models(config, vocab, pretrained_vectors, df):
     pos_weight = torch.FloatTensor([config['pos_weight']]).to(config['device'])
     external_vectors = np.stack(
         [wv.vectors for wv in pretrained_vectors.values()])
-    external_vectors = external_vectors.mean(axis=0)
-    word_features = WordFeature(
-        vocab, external_vectors, config['vocab']['min_count'])
+    embeddings = {'external': external_vectors.mean(axis=0)}
+    extra = None
+    transformer = WordFeatureTransformer(
+        vocab, embeddings['external'], config['vocab']['min_count'])
 
-    if config['model']['embed']['finetune']:
-        word_features.finetune(Word2Vec, df)
+    # Fine-tuning
+    if 'skipgram' in config['model']['embed']['finetune']:
+        params = skipgram
+        embeddings['skipgram'] = transformer.finetune_skipgram(df, params)
+    if 'fasttext' in config['model']['embed']['finetune']:
+        params = fasttext
+        embeddings['fasttext'] = transformer.finetune_fasttext(df, params)
 
+    # Standardize
+    assert config['model']['embed']['standardize'] in {'vocab', 'freq', None}
+    if config['model']['embed']['standardize'] == 'vocab':
+        embeddings = {k: transformer.standardize(v)
+                      for k, v in embeddings.items()}
+    elif config['model']['embed']['standardize'] == 'freq':
+        embeddings = {k: transformer.standardize_freq(v)
+                      for k, v in embeddings.items()}
+
+    # Extra features
     if config['model']['embed']['extra_features'] is not None:
-        word_features.prepare_extra_features(
+        extra = transformer.prepare_extra_features(
             df, vocab.token2id, config['model']['embed']['extra_features'])
 
+    assert config['model']['embed']['unk_hfq'] in {'noise', None}
     for i in range(config['cv']):
-        add_noise = config['model']['embed']['add_noise']
-        embedding_vectors = word_features.build_feature(add_noise=add_noise)
+        _embeddings = deepcopy(embeddings)
+        if config['model']['embed']['unk_hfq'] == 'noise':
+            indices = transformer.unk & transformer.hfq
+            _embeddings['external'][indices] += np.random.normal(
+                transformer.mean, transformer.std,
+                _embeddings['external'][indices].shape)
+        embedding_matrix = np.stack(list(_embeddings.values())).mean(axis=0)
+
+        if config['model']['embed']['extra_features'] is not None:
+            embedding_matrix = np.concatenate(
+                [embedding_matrix, extra], axis=1)
+
         embedding = nn.Embedding.from_pretrained(
-            torch.Tensor(embedding_vectors), freeze=True)
+            torch.Tensor(embedding_matrix), freeze=True)
         lossfunc = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
         model = build_model(config, embedding, lossfunc)
         models.append(model)
 
-    return models, word_features.unk
+    return models, transformer.unk
 
 
 def build_model(config, embedding, lossfunc):
@@ -50,33 +97,7 @@ def build_model(config, embedding, lossfunc):
 
 
 def build_sentence_feature():
-    return StatisticSentenceFeature()
-
-
-class StatisticSentenceFeature(object):
-
-    out_size = 6
-
-    def extract_features(self, sentence):
-        feature = {}
-        tokens = sentence.split()
-        feature['n_chars'] = len(sentence)
-        feature['n_caps'] = sum(1 for char in sentence if char.isupper())
-        feature['caps_rate'] = feature['n_caps'] / feature['n_chars']
-        feature['n_words'] = len(tokens)
-        feature['unique_words'] = len(set(tokens))
-        feature['unique_rate'] = feature['unique_words'] / feature['n_words']
-        features = np.array(list(feature.values()))
-        return features
-
-    def fit_transform(self, features):
-        self.mean = features.mean()
-        self.std = features.std()
-        return (features - self.mean) / self.std
-
-    def transform(self, features):
-        assert hasattr(self, 'mean'), hasattr(self, 'std')
-        return (features - self.mean) / self.std
+    return None
 
 
 class Encoder(nn.Module):
