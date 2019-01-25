@@ -32,6 +32,7 @@ aggregators = {
 preprocessors = {
     'lower': str.lower,
     'punct': PunctSpacer(),
+    'punct_edge': PunctSpacer(edge_only=True),
     'unidecode': unidecode,
     'number': NumberReplacer(),
     'number+underscore': NumberReplacer(with_underscore=True),
