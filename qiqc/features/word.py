@@ -49,6 +49,7 @@ class WordFeatureTransformer(object):
         self.initialW = initialW
         self.finetuned_vectors = None
         self.min_count = min_count
+        self.n_embed = self.initialW.shape[1]
 
         self.unk = (initialW == 0).all(axis=1)
         self.known = ~self.unk
@@ -58,12 +59,23 @@ class WordFeatureTransformer(object):
         self.std = initialW[self.known].std()
         self.extra_features = None
 
-    def finetune_skipgram(self, df, params):
+    def build_fillvalue(self, mode, n_fill):
+        assert mode in {'zeros', 'mean', 'noise'}
+        if mode == 'zeros':
+            return np.zeros(self.n_embed, 'f')
+        elif mode == 'mean':
+            return self.initialW.mean(axis=0)
+        elif mode == 'noise':
+            return np.random.normal(
+                self.mean, self.std, (n_fill, self.n_embed))
+
+    def finetune_skipgram(self, df, params, fill_unk):
         tokens = df.tokens.values
         model = Word2Vec(**params)
         model.build_vocab_from_freq(self.word_freq)
         initialW = self.initialW.copy()
-        initialW[self.unk] = self.mean
+        initialW[self.unk] = self.build_fillvalue(
+            fill_unk, initialW[self.unk].shape)
         idxmap = np.array(
             [self.vocab.token2id[w] for w in model.wv.index2entity])
         model.wv.vectors[:] = initialW[idxmap]
@@ -73,12 +85,13 @@ class WordFeatureTransformer(object):
         finetunedW[idxmap] = model.wv.vectors
         return finetunedW
 
-    def finetune_fasttext(self, df, params):
+    def finetune_fasttext(self, df, params, fill_unk):
         tokens = df.tokens.values
         model = FastText(**params)
         model.build_vocab_from_freq(self.word_freq)
         initialW = self.initialW.copy()
-        initialW[self.unk] = self.mean
+        initialW[self.unk] = self.build_fillvalue(
+            fill_unk, initialW[self.unk].shape)
         idxmap = np.array(
             [self.vocab.token2id[w] for w in model.wv.index2entity])
         model.wv.vectors[:] = initialW[idxmap]

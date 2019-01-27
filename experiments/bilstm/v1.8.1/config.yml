@@ -34,7 +34,9 @@ model:
         size: 300
         iter: 5
       fasttext:
-    unk_hfq: noise
+    fill:
+      finetune_unk: zeros
+      unk_hfq: noise
     standardize:
     extra_features:
     n_embed: 300

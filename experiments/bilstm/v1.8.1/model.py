@@ -28,10 +28,12 @@ def build_models(config, vocab, pretrained_vectors, df):
     # Fine-tuning
     if config['model']['embed']['finetune']['skipgram'] is not None:
         embeddings['skipgram'] = transformer.finetune_skipgram(
-            df, config['model']['embed']['finetune']['skipgram'])
+            df, config['model']['embed']['finetune']['skipgram'],
+            config['model']['embed']['fill']['finetune_unk'])
     if config['model']['embed']['finetune']['fasttext'] is not None:
         embeddings['fasttext'] = transformer.finetune_fasttext(
-            df, config['model']['embed']['finetune']['fasttext'])
+            df, config['model']['embed']['finetune']['fasttext'],
+            config['model']['embed']['fill']['finetune_unk'])
 
     # Standardize
     assert config['model']['embed']['standardize'] in {'vocab', 'freq', None}
@@ -47,14 +49,11 @@ def build_models(config, vocab, pretrained_vectors, df):
         extra = transformer.prepare_extra_features(
             df, vocab.token2id, config['model']['embed']['extra_features'])
 
-    assert config['model']['embed']['unk_hfq'] in {'noise', None}
     for i in range(config['cv']):
         _embeddings = deepcopy(embeddings)
-        if config['model']['embed']['unk_hfq'] == 'noise':
-            indices = transformer.unk & transformer.hfq
-            _embeddings['external'][indices] += np.random.normal(
-                transformer.mean, transformer.std,
-                _embeddings['external'][indices].shape)
+        indices = transformer.unk & transformer.hfq
+        _embeddings['external'][indices] += transformer.build_fillvalue(
+            config['model']['embed']['fill']['unk_hfq'], indices.sum())
         embedding_matrix = np.stack(list(_embeddings.values())).mean(axis=0)
         embedding_matrix[transformer.lfq & transformer.unk] = 0
 

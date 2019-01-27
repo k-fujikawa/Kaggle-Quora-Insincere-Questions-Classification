@@ -30,11 +30,10 @@ class TestWordFeatures(TestCase):
         df = pd.DataFrame(
             {'tokens': [list('abcd'), list('abcdefg'), list('adefg')]})
         params = {'size': 300, 'iter': 1, 'min_count': self.min_count}
-        vectors = self.transformer.finetune_skipgram(df, params)
+        fill_unk = 'mean'
+        vectors = self.transformer.finetune_skipgram(df, params, fill_unk)
         lfq = self.transformer.lfq
-        unk = self.transformer.unk
         is_equal = vectors == self.transformer.initialW
-        np.testing.assert_equal((vectors == 0).all(axis=1), unk & lfq)
         np.testing.assert_equal(is_equal.all(axis=1), lfq)
 
     def test_finetune_fasttext(self):
@@ -42,9 +41,9 @@ class TestWordFeatures(TestCase):
             {'tokens': [list('abcd'), list('abcdefg'), list('adefg')]})
         params = {'size': 300, 'iter': 1, 'min_count': self.min_count,
                   'min_n': 1}
-        vectors = self.transformer.finetune_fasttext(df, params)
+        fill_unk = 'zeros'
+        vectors = self.transformer.finetune_fasttext(df, params, fill_unk)
         is_equal = vectors == self.transformer.initialW
-        np.testing.assert_equal((vectors == 0).all(axis=1), False)
         np.testing.assert_equal(is_equal.all(axis=1), False)
 
     def test_standardize(self):
