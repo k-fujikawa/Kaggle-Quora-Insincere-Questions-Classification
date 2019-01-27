@@ -10,6 +10,8 @@ import pandas as pd
 import prompter
 from joblib import Parallel, delayed
 
+from _qiqc.utils import *  # NOQA
+
 
 def rmtree_after_confirmation(path, force=False):
     if Path(path).exists():
@@ -42,3 +44,14 @@ def parallel_apply(df, f, axis=None, processes=2):
         applyfunc = lambda x: x.apply(f, axis=axis)  # NOQA
     outputs = Parallel(n_jobs=processes)(delayed(applyfunc)(df) for df in dfs)
     return pd.concat(outputs)
+
+
+class Pipeline(object):
+
+    def __init__(self, *modules):
+        self.modules = modules
+
+    def __call__(self, x):
+        for module in self.modules:
+            x = module(x)
+        return x

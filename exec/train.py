@@ -18,8 +18,8 @@ from qiqc.builder import build_optimizer
 from qiqc.features import load_pretrained_vectors, WordVocab
 from qiqc.datasets import load_qiqc, QIQCDataset
 from qiqc.model_selection import classification_metrics, ClassificationResult
-from qiqc.preprocessors import PreprocessPipeline
-from qiqc.utils import pad_sequence, set_seed, parallel_apply
+from qiqc.utils import pad_sequence, set_seed
+from qiqc.utils import ApplyNdArray, Pipeline
 
 
 def main(args=None):
@@ -74,11 +74,9 @@ def train(config):
     submit_dataset = QIQCDataset(submit_df)
 
     print('Preprocess texts...')
-    tokenize = PreprocessPipeline(preprocessor, tokenizer)
-    train_dataset.preprocess(
-        'question_text', 'tokens', tokenize, parallel_apply)
-    submit_dataset.preprocess(
-        'question_text', 'tokens', tokenize, parallel_apply)
+    tokenize = ApplyNdArray(Pipeline(preprocessor, tokenizer), processes=2)
+    train_dataset.df['tokens'] = tokenize(train_df.question_text.values)
+    submit_dataset.df['tokens'] = tokenize(submit_df.question_text.values)
 
     if sent2vec is not None:
         print('Extract sentence features...')

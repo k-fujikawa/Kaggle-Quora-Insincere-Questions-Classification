@@ -16,11 +16,13 @@ from qiqc.models.ensembler.stacking import LinearEnsembler
 from qiqc.models.ensembler.stacking import MLPEnsembler
 from qiqc.models.ensembler.stacking import LGBMEnsembler
 
-from qiqc.preprocessors.pipeline import PreprocessPipeline
-from qiqc.preprocessors.normalizer import PunctSpacer
-from qiqc.preprocessors.normalizer import NumberReplacer
-from qiqc.preprocessors.normalizer import MisspellReplacer
-from qiqc.preprocessors.normalizer import KerasFilterReplacer
+from qiqc.utils import Pipeline
+from qiqc.preprocessors import cylower
+from qiqc.preprocessors import cysplit
+from qiqc.preprocessors import PunctSpacer
+from qiqc.preprocessors import NumberReplacer
+from qiqc.preprocessors import MisspellReplacer
+from qiqc.preprocessors import KerasFilterReplacer
 
 
 aggregators = {
@@ -30,7 +32,7 @@ aggregators = {
     'last': BiRNNLastStateAggregator(),
 }
 preprocessors = {
-    'lower': str.lower,
+    'lower': cylower,
     'punct': PunctSpacer(),
     'punct_edge': PunctSpacer(edge_only=True),
     'unidecode': unidecode,
@@ -40,7 +42,7 @@ preprocessors = {
     'keras': KerasFilterReplacer(),
 }
 tokenizers = {
-    'space': str.split,
+    'space': cysplit,
     'word_tokenize': nltk.word_tokenize,
 }
 encoders = {
@@ -77,7 +79,7 @@ def build_aggregator(name):
 
 def build_preprocessor(names):
     assert isinstance(names, list)
-    return PreprocessPipeline(*[
+    return Pipeline(*[
         preprocessors[n] for n in names
     ])
 

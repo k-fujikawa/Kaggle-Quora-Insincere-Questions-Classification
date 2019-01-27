@@ -6,11 +6,13 @@ services:
     network_mode: "bridge"
     init: true
     volumes:
-      - $PWD:/src
+      - $PWD:/work
+      - $PWD/qiqc:/src/qiqc
+      - $PWD/experiments:/src/experiments
       - $HOME/.kaggle:/tmp/.kaggle
     environment:
       - HOME=/tmp
-      - DATADIR=/src/input
+      - DATADIR=/work/input
   cpu:
     <<: *base
     build:

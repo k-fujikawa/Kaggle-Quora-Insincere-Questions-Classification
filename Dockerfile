@@ -34,7 +34,10 @@ RUN bash -c "source activate default && \
 ENV PYTHONHASHSEED 0
 
 ADD . /src
-RUN bash -c "source activate default && pip install -e /src"
 WORKDIR /src
-ENTRYPOINT ["/src/entrypoint.sh"]
+
+RUN bash -c "source activate default && python setup.py build_ext"
+RUN bash -c "source activate default && python setup.py develop"
+WORKDIR /work
+ENTRYPOINT ["/work/entrypoint.sh"]
 CMD /bin/bash

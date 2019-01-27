@@ -1,39 +1,76 @@
+# cython: language_level=3
 import re
 
+import numpy as np
+cimport numpy as np
+from multiprocessing import Pool
 
-class StringReplacer(object):
 
-    def __init__(self, rule):
-        assert isinstance(rule, dict)
+cdef class StringReplacer:
+    cpdef public dict rule
+    cpdef list keys
+    cpdef list values
+    cpdef int n_rules
+
+    def __init__(self, dict rule):
         self.rule = rule
+        self.keys = list(rule.keys())
+        self.values = list(rule.values())
+        self.n_rules = len(rule)
 
-    def __call__(self, x):
-        for old, new in self.rule.items():
-            if old in x:
-                x = x.replace(old, new)
+    def __call__(self, str x):
+        cdef int i
+        for i in range(self.n_rules):
+            if self.keys[i] in x:
+                x = x.replace(self.keys[i], self.values[i])
         return x
 
+    def __getstate__(self):
+        return (self.rule, self.keys, self.values, self.n_rules)
 
-class RegExpReplacer(object):
+    def __setstate__(self, state):
+        self.rule, self.keys, self.values, self.n_rules = state
 
-    def __init__(self, rule):
-        assert isinstance(rule, dict)
+
+cdef class RegExpReplacer:
+    cdef dict rule
+    cdef list keys
+    cdef list values
+    cdef regexp
+    cdef int n_rules
+
+    def __init__(self, dict rule):
         self.rule = rule
-        self.regexp = re.compile('(%s)' % '|'.join(rule.keys()))
+        self.keys = list(rule.keys())
+        self.values = list(rule.values())
+        self.regexp = re.compile('(%s)' % '|'.join(self.keys))
+        self.n_rules = len(rule)
 
-    def __call__(self, x):
+    @property
+    def rule(self):
+        return self.rule
+
+    def __call__(self, str x):
         def replace(match):
             x = match.group(0)
             if x in self.rule:
                 return self.rule[x]
             else:
-                for old, new in self.rule.items():
-                    x = re.sub(old, new, x)
+                for i in range(self.n_rules):
+                    x = re.sub(self.keys[i], self.values[i], x)
                 return x
         return self.regexp.sub(replace, x)
 
 
-class PunctSpacer(StringReplacer):
+cpdef str cylower(str x):
+    return x.lower()
+
+
+cpdef list cysplit(str x):
+    return x.split()
+
+
+cdef class PunctSpacer(StringReplacer):
 
     def __init__(self, edge_only=False):
         puncts = [',', '.', '"', ':', ')', '(', '-', '!', '?', '|', ';', "'", '$', '&', '/', '[', ']', '>', '%', '=', '#', '*', '+', '\\', '•',  '~', '@', '£', '·', '_', '{', '}', '©', '^', '®', '`',  '<', '→', '°', '€', '™', '›',  '♥', '←', '×', '§', '″', '′', 'Â', '█', '½', 'à', '…', '“', '★', '”', '–', '●', 'â', '►', '−', '¢', '²', '¬', '░', '¶', '↑', '±', '¿', '▾', '═', '¦', '║', '―', '¥', '▓', '—', '‹', '─', '▒', '：', '¼', '⊕', '▼', '▪', '†', '■', '’', '▀', '¨', '▄', '♫', '☆', 'é', '¯', '♦', '¤', '▲', 'è', '¸', '¾', 'Ã', '⋅', '‘', '∞', '∙', '）', '↓', '、', '│', '（', '»', '，', '♪', '╩', '╚', '³', '・', '╦', '╣', '╔', '╗', '▬', '❤', 'ï', 'Ø', '¹', '≤', '‡', '√', ]  # NOQA
@@ -47,7 +84,7 @@ class PunctSpacer(StringReplacer):
         super().__init__(rule)
 
 
-class NumberReplacer(RegExpReplacer):
+cdef class NumberReplacer(RegExpReplacer):
 
     def __init__(self, with_underscore=False):
         prefix, suffix = '', ''
@@ -63,7 +100,7 @@ class NumberReplacer(RegExpReplacer):
         super().__init__(rule)
 
 
-class KerasFilterReplacer(StringReplacer):
+cdef class KerasFilterReplacer(StringReplacer):
 
     def __init__(self):
         filters = '!"#$%&()*+,-./:;<=>?@[\\]^_`{|}~\t\n'
@@ -71,7 +108,7 @@ class KerasFilterReplacer(StringReplacer):
         super().__init__(rule)
 
 
-class MisspellReplacer(RegExpReplacer):
+cdef class MisspellReplacer(StringReplacer):
 
     def __init__(self):
         rule = {
