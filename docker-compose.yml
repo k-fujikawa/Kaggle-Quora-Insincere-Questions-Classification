@@ -8,7 +8,9 @@ services:
     volumes:
       - $PWD:/work
       - $PWD/qiqc:/src/qiqc
+      - $PWD/exec:/src/exec
       - $PWD/experiments:/src/experiments
+      - $PWD/tests:/src/tests
       - $HOME/.kaggle:/tmp/.kaggle
     environment:
       - HOME=/tmp

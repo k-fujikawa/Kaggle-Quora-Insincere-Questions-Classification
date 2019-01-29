@@ -6,11 +6,15 @@ from multiprocessing import Pool
 
 cdef class ApplyNdArray:
     cdef func
+    cdef dtype
+    cdef dims
     cdef int processes
 
-    def __init__(self, func, processes=1):
+    def __init__(self, func, processes=1, dtype=object, dims=None):
         self.func = func
         self.processes = processes
+        self.dtype = dtype
+        self.dims = dims
 
     def __call__(self, np.ndarray[unicode] arr):
         if self.processes == 1:
@@ -18,15 +22,19 @@ cdef class ApplyNdArray:
         else:
             return self.apply_parallel(arr)
 
-    cpdef np.ndarray[object] apply(self, np.ndarray[unicode] arr):
+    cpdef apply(self, np.ndarray[unicode] arr):
         cdef int i
         cdef int n = len(arr)
-        cdef np.ndarray[object] res = np.empty(n, dtype=object)
+        if self.dims is not None:
+            shape = (n, *self.dims)
+        else:
+            shape = n
+        cdef res = np.empty(shape, dtype=self.dtype)
         for i in range(n):
             res[i] = self.func(arr[i])
         return res
 
-    cpdef np.ndarray[object] apply_parallel(self, np.ndarray[unicode] arr):
+    cpdef apply_parallel(self, np.ndarray[unicode] arr):
         cdef list arrs = np.array_split(arr, self.processes)
         with Pool(processes=self.processes) as pool:
             outputs = pool.map(self.apply, arrs)

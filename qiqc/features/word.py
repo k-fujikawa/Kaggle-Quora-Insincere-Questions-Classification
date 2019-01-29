@@ -31,7 +31,7 @@ class WordVocab(object):
     def build(self):
         counter = dict(self.counter.most_common())
         self.word_freq = {
-            **{'<PAD>': 1},
+            **{'<PAD>': 0},
             **counter,
         }
         self.token2id = {

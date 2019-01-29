@@ -15,6 +15,7 @@ from qiqc.builder import build_preprocessor
 from qiqc.builder import build_tokenizer
 from qiqc.builder import build_ensembler
 from qiqc.builder import build_optimizer
+from qiqc.builder import build_sent2vec
 from qiqc.features import load_pretrained_vectors, WordVocab
 from qiqc.datasets import load_qiqc, QIQCDataset
 from qiqc.model_selection import classification_metrics, ClassificationResult
@@ -62,7 +63,6 @@ def train(config):
     modelconf = qiqc.loader.load_module(config['modeldir'] / 'model.py')
     build_models = modelconf.build_models
     build_sampler = modelconf.build_sampler
-    sent2vec = modelconf.build_sentence_feature()
 
     print(config)
     start = time.time()
@@ -70,61 +70,71 @@ def train(config):
     train_df, submit_df = load_qiqc(n_rows=config['n_rows'])
     preprocessor = build_preprocessor(config['preprocessors'])
     tokenizer = build_tokenizer(config['tokenizer'])
+    sent2vec = build_sent2vec(config['feature']['sentence'])
+    config['model']['encoder']['n_extra_features'] = sent2vec.n_dims
     train_dataset = QIQCDataset(train_df)
+    test_dataset = QIQCDataset(train_df.head(0))
     submit_dataset = QIQCDataset(submit_df)
 
-    print('Preprocess texts...')
-    tokenize = ApplyNdArray(Pipeline(preprocessor, tokenizer), processes=2)
-    train_dataset.df['tokens'] = tokenize(train_df.question_text.values)
-    submit_dataset.df['tokens'] = tokenize(submit_df.question_text.values)
-
-    if sent2vec is not None:
-        print('Extract sentence features...')
-        applyfunc = lambda x, func: x.apply(func)  # NOQA
-        train_dataset.preprocess(
-            'question_text', '_X2', sent2vec.extract_features, applyfunc)
-        submit_dataset.preprocess(
-            'question_text', '_X2', sent2vec.extract_features, applyfunc)
-        train_dataset.preprocess(
-            '_X2', 'X2', sent2vec.fit_transform, applyfunc)
-        submit_dataset.preprocess(
-            '_X2', 'X2', sent2vec.transform, applyfunc)
-
-    print('Build vocabulary...')
-    vocab = WordVocab()
-    vocab.add_documents(train_dataset.df.tokens, 'train')
-    vocab.add_documents(submit_dataset.df.tokens, 'submit')
-    vocab.build()
-
-    print('Build token ids...')
-    applyfunc = lambda x, func: x.apply(func)  # NOQA
-    token2id = lambda xs: pad_sequence(  # NOQA
-        [vocab.token2id[x] for x in xs], config['maxlen'])
-    train_dataset.preprocess(
-        'tokens', 'token_ids', token2id, applyfunc)
-    submit_dataset.preprocess(
-        'tokens', 'token_ids', token2id, applyfunc)
-
-    # Train : Test split for holdout training
     if config['holdout']:
+        # Train : Test split for holdout training
         splitter = sklearn.model_selection.StratifiedShuffleSplit(
             n_splits=1, test_size=0.1, random_state=config['seed'])
         train_indices, test_indices = list(splitter.split(
             train_dataset.df, train_dataset.df.target))[0]
+        train_indices.sort(), test_indices.sort()
         train_dataset = QIQCDataset(
             train_df.iloc[train_indices].reset_index(drop=True))
         test_dataset = QIQCDataset(
             train_df.iloc[test_indices].reset_index(drop=True))
-        test_dataset.build(config['device'])
+
+    print('Preprocess texts...')
+    tokenize = Pipeline(preprocessor, tokenizer)
+    apply_tokenize = ApplyNdArray(tokenize, processes=1, dtype=object)
+    train_dataset.df['tokens'] = apply_tokenize(
+        train_dataset.df.question_text.values)
+    test_dataset.df['tokens'] = apply_tokenize(
+        test_dataset.df.question_text.values)
+    submit_dataset.df['tokens'] = apply_tokenize(
+        submit_dataset.df.question_text.values)
+
+    if sent2vec.n_dims > 0:
+        print('Extract sentence features...')
+        apply_sent2vec = ApplyNdArray(
+            sent2vec, processes=1, dtype='f', dims=(sent2vec.n_dims,))
+        _train_X2 = apply_sent2vec(train_dataset.df.question_text.values)
+        _submit_X2 = apply_sent2vec(submit_dataset.df.question_text.values)
+        _test_X2 = apply_sent2vec(test_dataset.df.question_text.values)
+        train_dataset._X2 = sent2vec.fit_transform(_train_X2)
+        test_dataset._X2 = sent2vec.transform(_test_X2)
+        submit_dataset._X2 = sent2vec.transform(_submit_X2)
+
+    print('Build vocabulary...')
+    vocab = WordVocab()
+    vocab.add_documents(train_dataset.df.tokens, 'train')
+    vocab.add_documents(test_dataset.df.tokens, 'test')
+    vocab.add_documents(submit_dataset.df.tokens, 'submit')
+    vocab.build()
+
+    print('Build token ids...')
+    token2id = lambda xs: pad_sequence(  # NOQA
+        [vocab.token2id[x] for x in xs], config['maxlen'])
+    apply_token2id = ApplyNdArray(
+        token2id, processes=1, dtype='i', dims=(config['maxlen'],))
+    train_dataset.token_ids = apply_token2id(train_dataset.df.tokens.values)
+    test_dataset.token_ids = apply_token2id(test_dataset.df.tokens.values)
+    submit_dataset.token_ids = apply_token2id(submit_dataset.df.tokens.values)
 
     train_dataset.build(config['device'])
+    test_dataset.build(config['device'])
     submit_dataset.build(config['device'])
 
     print('Load pretrained vectors and build models...')
     all_df = pd.concat(
         [train_dataset.df, submit_dataset.df], ignore_index=True, sort=False)
     pretrained_vectors = load_pretrained_vectors(
-        config['model']['embed']['src'], vocab.token2id, test=config['test'])
+        config['feature']['word']['pretrained'],
+        vocab.token2id, test=config['test'])
     models, unk_indices = build_models(
         config, vocab, pretrained_vectors, all_df)
 

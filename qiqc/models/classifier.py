@@ -10,12 +10,9 @@ class BinaryClassifier(nn.Module):
         super().__init__()
         self.encoder = encoder
         self.n_hidden = config['mlp']['n_hidden']
-        in_size = config['encoder']['n_hidden'] *\
-            config['encoder']['out_scale'] +\
-            config['encoder']['sentence_features']
         self.mlp = MLP(
             n_layers=config['mlp']['n_layers'],
-            in_size=in_size,
+            in_size=encoder.out_size,
             out_size=config['mlp']['n_hidden'],
             actfun=nn.ReLU(True),
             bn0=config['mlp']['bn0'],
