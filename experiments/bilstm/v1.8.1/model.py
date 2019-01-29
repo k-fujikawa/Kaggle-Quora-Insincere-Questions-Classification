@@ -26,38 +26,39 @@ def build_models(config, vocab, pretrained_vectors, df):
         vocab, embeddings['external'], config['vocab']['min_count'])
 
     # Fine-tuning
-    if config['model']['embed']['finetune']['skipgram'] is not None:
+    if config['feature']['word']['finetune']['skipgram'] is not None:
         embeddings['skipgram'] = transformer.finetune_skipgram(
-            df, config['model']['embed']['finetune']['skipgram'],
-            config['model']['embed']['fill']['finetune_unk'])
-    if config['model']['embed']['finetune']['fasttext'] is not None:
+            df, config['feature']['word']['finetune']['skipgram'],
+            config['feature']['word']['fill']['finetune_unk'])
+    if config['feature']['word']['finetune']['fasttext'] is not None:
         embeddings['fasttext'] = transformer.finetune_fasttext(
-            df, config['model']['embed']['finetune']['fasttext'],
-            config['model']['embed']['fill']['finetune_unk'])
+            df, config['feature']['word']['finetune']['fasttext'],
+            config['feature']['word']['fill']['finetune_unk'])
 
     # Standardize
-    assert config['model']['embed']['standardize'] in {'vocab', 'freq', None}
-    if config['model']['embed']['standardize'] == 'vocab':
+    assert config['feature']['word']['standardize'] in {'vocab', 'freq', None}
+    if config['feature']['word']['standardize'] == 'vocab':
         embeddings = {k: transformer.standardize(v)
                       for k, v in embeddings.items()}
-    elif config['model']['embed']['standardize'] == 'freq':
+    elif config['feature']['word']['standardize'] == 'freq':
         embeddings = {k: transformer.standardize_freq(v)
                       for k, v in embeddings.items()}
 
     # Extra features
-    if config['model']['embed']['extra_features'] is not None:
+    if config['feature']['word']['extra'] is not None:
         extra = transformer.prepare_extra_features(
-            df, vocab.token2id, config['model']['embed']['extra_features'])
+            df, vocab.token2id, config['feature']['word']['extra'])
 
     for i in range(config['cv']):
         _embeddings = deepcopy(embeddings)
         indices = transformer.unk & transformer.hfq
-        _embeddings['external'][indices] += transformer.build_fillvalue(
-            config['model']['embed']['fill']['unk_hfq'], indices.sum())
+        _embeddings['external'][indices] = transformer.build_fillvalue(
+            config['feature']['word']['fill']['unk_hfq'], indices.sum())
+
         embedding_matrix = np.stack(list(_embeddings.values())).mean(axis=0)
         embedding_matrix[transformer.lfq & transformer.unk] = 0
 
-        if config['model']['embed']['extra_features'] is not None:
+        if config['feature']['word']['extra'] is not None:
             embedding_matrix = np.concatenate(
                 [embedding_matrix, extra], axis=1)
 
@@ -74,10 +75,6 @@ def build_model(config, embedding, lossfunc):
     encoder = Encoder(config['model'], embedding)
     clf = BinaryClassifier(config['model'], encoder, lossfunc)
     return clf
-
-
-def build_sentence_feature():
-    return None
 
 
 class Encoder(nn.Module):
@@ -98,6 +95,9 @@ class Encoder(nn.Module):
         if self.config['encoder'].get('attention') is not None:
             self.attn = build_attention(config['encoder']['attention'])(
                 config['encoder']['n_hidden'] * config['encoder']['out_scale'])
+        self.n_sentence_features = config['encoder']['n_extra_features']
+        self.out_size = config['encoder']['n_extra_features'] + \
+            config['encoder']['out_scale'] * config['encoder']['n_hidden'] 
 
     def forward(self, X, X2, mask):
         h = self.embedding(X)
@@ -109,6 +109,6 @@ class Encoder(nn.Module):
         if self.config['encoder'].get('attention') is not None:
             h = self.attn(h, mask)
         h = self.aggregator(h, mask)
-        if self.config['encoder']['sentence_features'] > 0:
+        if self.n_sentence_features > 0:
             h = torch.cat([h, X2], dim=1)
         return h

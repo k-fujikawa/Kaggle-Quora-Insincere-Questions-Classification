@@ -21,22 +21,28 @@ optimizer:
   name: adam
   params:
     lr: 0.001
-model:
-  embed:
-    src:
+feature:
+  word:
+    pretrained:
       - glove
       - paragram
     finetune:
       skipgram:
-        min_count: 5
+        min_count: 1
         workers: 1
         sorted_vocab: 0
         size: 300
         iter: 5
       fasttext:
-    unk_hfq: noise
+    fill:
+      finetune_unk: zeros
+      unk_hfq: noise
     standardize:
-    extra_features:
+    extra:
+  sentence:
+    - frequency
+model:
+  embed:
     n_embed: 300
     dropout1d: 0.2
     dropout2d: 0.
@@ -50,7 +56,6 @@ model:
     out_scale: 2
     aggregator: max
     attention:
-    sentence_features: 0
   mlp:
     bn0: False
     bn: True

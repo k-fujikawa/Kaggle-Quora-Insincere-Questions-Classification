@@ -21,9 +21,9 @@ optimizer:
   name: adam
   params:
     lr: 0.001
-model:
-  embed:
-    src:
+feature:
+  word:
+    pretrained:
       - glove
       - paragram
     finetune:
@@ -38,7 +38,10 @@ model:
       finetune_unk: zeros
       unk_hfq: noise
     standardize:
-    extra_features:
+    extra:
+  sentence:
+model:
+  embed:
     n_embed: 300
     dropout1d: 0.2
     dropout2d: 0.
@@ -52,7 +55,6 @@ model:
     out_scale: 2
     aggregator: max
     attention:
-    sentence_features: 0
   mlp:
     bn0: False
     bn: True
