@@ -2,6 +2,8 @@ import nltk
 import torch
 from unidecode import unidecode
 
+from qiqc.features import SentenceFeatureTransformer
+from qiqc.features import FrequencyBasedSentenceFeatureTransformer
 from qiqc.models.aggregator.pooling import AvgPoolingAggregator
 from qiqc.models.aggregator.pooling import MaxPoolingAggregator
 from qiqc.models.aggregator.pooling import SumPoolingAggregator
@@ -45,6 +47,9 @@ tokenizers = {
     'space': cysplit,
     'word_tokenize': nltk.word_tokenize,
 }
+sentence_features = {
+    'frequency': FrequencyBasedSentenceFeatureTransformer(),
+}
 encoders = {
     'lstm': LSTMEncoder,
     'gru': GRUEncoder,
@@ -86,6 +91,16 @@ def build_preprocessor(names):
 
 def build_tokenizer(name):
     return tokenizers[name]
+
+
+def build_sent2vec(names):
+    assert isinstance(names, (list, type(None)))
+    if names is None:
+        return SentenceFeatureTransformer()
+    else:
+        return SentenceFeatureTransformer(*[
+            sentence_features[n] for n in names
+        ])
 
 
 def build_encoder(name):
