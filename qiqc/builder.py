@@ -19,6 +19,7 @@ from qiqc.models.ensembler.stacking import MLPEnsembler
 from qiqc.models.ensembler.stacking import LGBMEnsembler
 
 from qiqc.utils import Pipeline
+from qiqc.preprocessors import unidecode_weak
 from qiqc.preprocessors import cylower
 from qiqc.preprocessors import cysplit
 from qiqc.preprocessors import PunctSpacer
@@ -38,6 +39,7 @@ preprocessors = {
     'punct': PunctSpacer(),
     'punct_edge': PunctSpacer(edge_only=True),
     'unidecode': unidecode,
+    'unidecode_weak': unidecode_weak,
     'number': NumberReplacer(),
     'number+underscore': NumberReplacer(with_underscore=True),
     'misspell': MisspellReplacer(),

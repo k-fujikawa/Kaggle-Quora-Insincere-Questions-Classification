@@ -1,3 +1,4 @@
+from _qiqc.preprocessors.normalizer import unidecode_weak  # NOQA
 from _qiqc.preprocessors.normalizer import cylower  # NOQA
 from _qiqc.preprocessors.normalizer import cysplit  # NOQA
 from _qiqc.preprocessors.normalizer import StringReplacer  # NOQA

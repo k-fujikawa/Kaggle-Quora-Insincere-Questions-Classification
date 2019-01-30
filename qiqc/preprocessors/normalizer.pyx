@@ -270,3 +270,51 @@ cdef class MisspellReplacer(StringReplacer):
             "demonetisation": "demonetization",
         }
         super().__init__(rule)
+
+
+Cache = {}
+
+
+cpdef str unidecode_weak(str string):
+    """Transliterate an Unicode object into an ASCII string
+    >>> unidecode(u"\u5317\u4EB0")
+    "Bei Jing "
+    """
+
+    cdef list retval = []
+    cdef int i = 0
+    cdef int n = len(string)
+    cdef str char
+
+    for i in range(n):
+        char = string[i]
+        codepoint = ord(char)
+
+        if codepoint < 0x80: # Basic ASCII
+            retval.append(char)
+            continue
+
+        if codepoint > 0xeffff:
+            continue  # Characters in Private Use Area and above are ignored
+
+        section = codepoint >> 8   # Chop off the last two hex digits
+        position = codepoint % 256 # Last two hex digits
+
+        try:
+            table = Cache[section]
+        except KeyError:
+            try:
+                mod = __import__('unidecode.x%03x'%(section), [], [], ['data'])
+            except ImportError:
+                Cache[section] = None
+                continue   # No match: ignore this character and carry on.
+
+            Cache[section] = table = mod.data
+
+        if table and len(table) > position:
+            if table[position] == '[?]':
+                retval.append(' ' + char + ' ')
+            else:
+                retval.append(table[position])
+
+    return ''.join(retval)

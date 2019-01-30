@@ -27,3 +27,12 @@ class TestMisspellReplacer(TestCase):
         replacer = QP.MisspellReplacer()
         for old, new in replacer.rule.items():
             self.assertEqual(new, replacer(old))
+
+
+class TestUnidecodeWeak(TestCase):
+
+    def test_call(self):
+        replacer = QP.unidecode_weak
+        old = 'what\u200b is √3?'
+        new = 'what  is  √ 3?'
+        self.assertEqual(new, replacer(old))
