@@ -95,6 +95,7 @@ class Encoder(nn.Module):
         if self.config['encoder'].get('attention') is not None:
             self.attn = build_attention(config['encoder']['attention'])(
                 config['encoder']['n_hidden'] * config['encoder']['out_scale'])
+        self.n_sentence_features = config['encoder']['n_extra_features']
         self.out_size = config['encoder']['n_extra_features'] + \
             config['encoder']['out_scale'] * config['encoder']['n_hidden'] 
 
@@ -108,6 +109,6 @@ class Encoder(nn.Module):
         if self.config['encoder'].get('attention') is not None:
             h = self.attn(h, mask)
         h = self.aggregator(h, mask)
-        if self.out_size > 0:
+        if self.n_sentence_features > 0:
             h = torch.cat([h, X2], dim=1)
         return h

@@ -9,18 +9,16 @@ class BinaryClassifier(nn.Module):
     def __init__(self, config, encoder, lossfunc):
         super().__init__()
         self.encoder = encoder
-        self.n_hidden = config['mlp']['n_hidden']
         self.mlp = MLP(
-            n_layers=config['mlp']['n_layers'],
             in_size=encoder.out_size,
-            out_size=config['mlp']['n_hidden'],
+            n_hiddens=config['mlp']['n_hiddens'],
             actfun=nn.ReLU(True),
             bn0=config['mlp']['bn0'],
             bn=config['mlp']['bn'],
             dropout0=config['mlp']['dropout0'],
             dropout=config['mlp']['dropout'],
         )
-        self.out = nn.Linear(config['mlp']['n_hidden'], 1)
+        self.out = nn.Linear(config['mlp']['n_hiddens'][-1], 1)
         self.lossfunc = lossfunc
 
     def calc_loss(self, X, X2, t, W=None):

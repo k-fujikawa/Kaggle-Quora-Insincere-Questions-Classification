@@ -61,8 +61,9 @@ model:
     bn: True
     dropout0: 0
     dropout: 0
-    n_layers: 2
-    n_hidden: 128
+    n_hiddens:
+      - 128
+      - 128
 ensembler:
   model: avg
   n_snapshots: 1

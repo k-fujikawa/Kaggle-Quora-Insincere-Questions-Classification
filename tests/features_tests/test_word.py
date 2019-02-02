@@ -42,8 +42,9 @@ class TestWordFeatures(TestCase):
         params = {'size': 300, 'iter': 1, 'min_count': self.min_count,
                   'min_n': 1}
         fill_unk = 'zeros'
+        hfq = self.transformer.hfq
         vectors = self.transformer.finetune_fasttext(df, params, fill_unk)
-        is_equal = vectors == self.transformer.initialW
+        is_equal = vectors[hfq] == self.transformer.initialW[hfq]
         np.testing.assert_equal(is_equal.all(axis=1), False)
 
     def test_standardize(self):
