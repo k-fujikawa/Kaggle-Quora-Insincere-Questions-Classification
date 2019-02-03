@@ -54,8 +54,11 @@ def build_models(config, vocab, pretrained_vectors, df):
         indices = transformer.unk & transformer.hfq
         _embeddings['external'][indices] = transformer.build_fillvalue(
             config['feature']['word']['fill']['unk_hfq'], indices.sum())
+        embedding_matrix = np.stack(list(_embeddings.values()))
+        n_known_vecs = (~(embedding_matrix == 0).all(axis=-1)).sum(axis=0)
+        n_known_vecs = np.where(n_known_vecs != 0, n_known_vecs, 1)
+        embedding_matrix = embedding_matrix.sum(axis=0) / n_known_vecs[:, None]
 
-        embedding_matrix = np.stack(list(_embeddings.values())).mean(axis=0)
         embedding_matrix[transformer.lfq & transformer.unk] = 0
 
         if config['feature']['word']['extra'] is not None:
