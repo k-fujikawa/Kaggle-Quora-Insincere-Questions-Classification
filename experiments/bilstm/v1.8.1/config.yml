@@ -44,6 +44,7 @@ model:
   embed:
     n_embed: 300
     dropout1d: 0.2
+    spatial_dropout1d: 0.
     dropout2d: 0.
   encoder:
     name: lstm
@@ -60,7 +61,6 @@ model:
     bn: True
     dropout0: 0
     dropout: 0
-    n_layers: 2
     n_hiddens:
       - 128
       - 128

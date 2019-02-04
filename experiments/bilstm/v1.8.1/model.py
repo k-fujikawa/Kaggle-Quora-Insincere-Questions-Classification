@@ -91,6 +91,9 @@ class Encoder(nn.Module):
             self.dropout1d = nn.Dropout(config['embed']['dropout1d'])
         if self.config['embed']['dropout2d'] > 0:
             self.dropout2d = nn.Dropout2d(config['embed']['dropout2d'])
+        if self.config['embed']['spatial_dropout1d'] > 0:
+            self.spatial_dropout1d = nn.Dropout2d(
+                config['embed']['spatial_dropout1d'])
         self.encoder = build_encoder(
             config['encoder']['name'])(config['encoder'])
         self.aggregator = build_aggregator(
@@ -108,6 +111,10 @@ class Encoder(nn.Module):
             h = self.dropout1d(h)
         if self.config['embed']['dropout2d'] > 0:
             h = self.dropout2d(h)
+        if self.config['embed']['spatial_dropout1d'] > 0:
+            h = h.permute(0, 2, 1)
+            h = self.spatial_dropout1d(h)
+            h = h.permute(0, 2, 1)
         h = self.encoder(h, mask)
         if self.config['encoder'].get('attention') is not None:
             h = self.attn(h, mask)
