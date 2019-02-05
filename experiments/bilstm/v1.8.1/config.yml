@@ -2,6 +2,7 @@ cv: 5
 cv_part:
 batchsize: 512
 batchsize_valid: 1024
+scale_batchsize: False
 seed: 1029
 epochs: 5
 maxlen: 72

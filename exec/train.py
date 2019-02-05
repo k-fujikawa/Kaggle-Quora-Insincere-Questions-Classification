@@ -162,13 +162,17 @@ def train(config):
             'valid', config['outdir'], str(i_cv))
 
         for epoch in range(config['epochs']):
+            if config['scale_batchsize'] and epoch == config['epochs'] - 1:
+                batchsize = config['batchsize'] * 2
+            else:
+                batchsize = config['batchsize']
             epoch_start = time.time()
             sampler = build_sampler(
-                config['batchsize'], i_cv, epoch,
+                batchsize, i_cv, epoch,
                 train_dataset._W[train_indices].values)
             train_iter = DataLoader(
                 train_tensor, sampler=sampler, drop_last=True,
-                batch_size=config['batchsize'], shuffle=sampler is None)
+                batch_size=batchsize, shuffle=sampler is None)
             _summary = []
 
             # Training loop
