@@ -16,13 +16,13 @@ cdef class ApplyNdArray:
         self.dtype = dtype
         self.dims = dims
 
-    def __call__(self, np.ndarray[unicode] arr):
+    def __call__(self, arr):
         if self.processes == 1:
             return self.apply(arr)
         else:
             return self.apply_parallel(arr)
 
-    cpdef apply(self, np.ndarray[unicode] arr):
+    cpdef apply(self, arr):
         cdef int i
         cdef int n = len(arr)
         if self.dims is not None:
@@ -34,7 +34,7 @@ cdef class ApplyNdArray:
             res[i] = self.func(arr[i])
         return res
 
-    cpdef apply_parallel(self, np.ndarray[unicode] arr):
+    cpdef apply_parallel(self, arr):
         cdef list arrs = np.array_split(arr, self.processes)
         with Pool(processes=self.processes) as pool:
             outputs = pool.map(self.apply, arrs)

@@ -111,8 +111,10 @@ def train(config):
 
     print('Build vocabulary...')
     vocab = WordVocab()
-    vocab.add_documents(train_dataset.df.tokens, 'train')
-    vocab.add_documents(test_dataset.df.tokens, 'test')
+    vocab.add_documents(train_dataset.positives.tokens, 'train_pos')
+    vocab.add_documents(train_dataset.negatives.tokens, 'train_neg')
+    vocab.add_documents(test_dataset.positives.tokens, 'test_pos')
+    vocab.add_documents(test_dataset.negatives.tokens, 'test_neg')
     vocab.add_documents(submit_dataset.df.tokens, 'submit')
     vocab.build()
 
