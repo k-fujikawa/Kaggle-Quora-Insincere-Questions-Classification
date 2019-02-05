@@ -1,0 +1,77 @@
+cv: 5
+cv_part:
+batchsize: 512
+batchsize_valid: 1024
+scale_batchsize: False
+seed: 1029
+epochs: 5
+maxlen: 72
+logging: True
+validate_from: 2
+
+pos_weight: 1.
+vocab:
+  min_count: 5
+preprocessors:
+  - lower
+  - misspell
+  - punct
+  - number+underscore
+tokenizer: space
+optimizer:
+  name: adam
+  params:
+    lr: 0.001
+feature:
+  word:
+    pretrained:
+      - glove
+      - paragram
+    finetune:
+      skipgram:
+        min_count: 1
+        workers: 1
+        sorted_vocab: 0
+        size: 300
+        iter: 5
+      fasttext:
+    fill:
+      finetune_unk: zeros
+      unk_hfq: noise
+    standardize:
+    extra:
+  sentence:
+model:
+  embed:
+    n_embed: 300
+    dropout1d: 0.2
+    dropout2d: 0.
+  encoder:
+    name: dconvlstm
+    bidirectional: True
+    n_layers: 2
+    out_scale: 2
+    n_input: 300
+    n_hidden: 128
+    # out_size: 128
+    aggregator: max
+    attention:
+    params:
+      - dropout: 0.
+        n_input: 300
+        kernel_size: 3
+        num_heads: 3
+  mlp:
+    bn0: False
+    bn: True
+    dropout0: 0
+    dropout: 0
+    n_layers: 2
+    n_hiddens:
+      - 128
+      - 128
+ensembler:
+  model: avg
+  n_snapshots: 1
+  test_size: 0.1
+  retrain_threshold: True
