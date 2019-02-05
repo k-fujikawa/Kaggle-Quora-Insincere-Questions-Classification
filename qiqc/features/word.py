@@ -127,15 +127,28 @@ class WordFeatureTransformer(object):
     def build_extra_features(self, df, config):
         extra_features = np.empty((len(self.vocab.token2id), 0))
         if 'chi2' in config:
-            chi2_features = self._prepare_chi2(df, self.vocab.token2id)
+            chi2_features = self.build_chi2_features(df)
             extra_features = np.concatenate(
                 [extra_features, chi2_features], axis=1)
+        if 'idf' in config:
+            idf_features = self.build_idf_features(df, onehot=False)
+            extra_features = np.concatenate(
+                [extra_features, idf_features], axis=1)
+        if 'idf_onehot' in config:
+            idf_features = self.build_idf_features(df, onehot=True)
+            extra_features = np.concatenate(
+                [extra_features, idf_features], axis=1)
+        if 'unk' in config:
+            unk_features = self.build_unk_features(df)
+            extra_features = np.concatenate(
+                [extra_features, unk_features], axis=1)
         return extra_features
 
     # TODO: Fix to build dictionary for calculation efficiency
-    def _prepare_chi2(self, df, token2id, threshold=0.01):
+    def build_chi2_features(self, df, threshold=0.01):
         vocab_pos = self.vocab._counters['pos']
         vocab_neg = self.vocab._counters['neg']
+        token2id = self.vocab.token2id
         counts = pd.DataFrame({'tokens': list(token2id.keys())})
         counts['TP'], counts['FP'] = 0, 0
 
@@ -162,3 +175,20 @@ class WordFeatureTransformer(object):
             (counts['TP/.P'] > class_ratio) & (counts.TP >= self.min_count)
         counts.loc[is_important, 'feature'] = 1
         return counts.feature[:, None]
+
+    def build_idf_features(self, df, onehot=True):
+        dfs = np.array(list(self.vocab.word_freq.values()))
+        if onehot:
+            dfs[dfs > 10] = 10
+            features = np.eye(11)[:, 1:][dfs]
+        else:
+            dfs[0] = self.vocab.n_documents
+            features = np.log(self.vocab.n_documents / dfs)
+            features = features[:, None]
+        return features
+
+    def build_unk_features(self, df):
+        features = self.unk.astype('f')
+        features[0] = 0
+        features = features[:, None]
+        return features

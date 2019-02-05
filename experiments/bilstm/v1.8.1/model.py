@@ -46,8 +46,8 @@ def build_models(config, vocab, pretrained_vectors, df):
 
     # Extra features
     if config['feature']['word']['extra'] is not None:
-        extra = transformer.prepare_extra_features(
-            df, vocab.token2id, config['feature']['word']['extra'])
+        extra = transformer.build_extra_features(
+            df, config['feature']['word']['extra'])
 
     for i in range(config['cv']):
         _embeddings = deepcopy(embeddings)
