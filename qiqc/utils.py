@@ -1,3 +1,4 @@
+import importlib
 import os
 import random
 import shutil
@@ -6,11 +7,18 @@ from pathlib import Path
 
 import torch
 import numpy as np
-import pandas as pd
 import prompter
-from joblib import Parallel, delayed
 
 from _qiqc.utils import *  # NOQA
+
+
+def load_module(filename):
+    assert isinstance(filename, Path)
+    name = filename.stem
+    spec = importlib.util.spec_from_file_location(name, filename)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 
 def rmtree_after_confirmation(path, force=False):
@@ -36,16 +44,6 @@ def set_seed(seed=0):
     torch.backends.cudnn.deterministic = True
 
 
-def parallel_apply(df, f, axis=None, processes=2):
-    dfs = np.array_split(df, processes)
-    if axis is None:
-        applyfunc = lambda x: x.apply(f)  # NOQA
-    else:
-        applyfunc = lambda x: x.apply(f, axis=axis)  # NOQA
-    outputs = Parallel(n_jobs=processes)(delayed(applyfunc)(df) for df in dfs)
-    return pd.concat(outputs)
-
-
 class Pipeline(object):
 
     def __init__(self, *modules):
@@ -55,3 +53,17 @@ class Pipeline(object):
         for module in self.modules:
             x = module(x)
         return x
+
+
+class cached_property(object):
+
+    def __init__(self, func):
+        self.__doc__ = getattr(func, "__doc__")
+        self.func = func
+
+    def __get__(self, obj, cls):
+        if obj is None:
+            return self
+
+        value = obj.__dict__[self.func.__name__] = self.func(obj)
+        return value
