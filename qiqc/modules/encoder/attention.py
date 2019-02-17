@@ -25,9 +25,6 @@ class StandAloneLinearAttention(nn.Module):
 
 
 class PairwiseDotAttention(nn.Module):
-    """
-    Compute 'Scaled Dot Product Attention
-    """
 
     def forward(self, query, key, value, mask=None, dropout=None):
         scores = torch.matmul(query, key.transpose(-2, -1)) \
@@ -45,9 +42,6 @@ class PairwiseDotAttention(nn.Module):
 
 
 class MultiHeadAttention(nn.Module):
-    """
-    Take in model size and number of heads.
-    """
 
     def __init__(self, attn_heads, in_size, out_size, dropout=0.):
         super().__init__()

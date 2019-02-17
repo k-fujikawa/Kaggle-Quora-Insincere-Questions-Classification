@@ -1,6 +1,9 @@
 import torch
 
+from qiqc.registry import register_aggregator
 
+
+@register_aggregator('last')
 class BiRNNLastStateAggregator(object):
 
     def __call__(self, hs, mask):

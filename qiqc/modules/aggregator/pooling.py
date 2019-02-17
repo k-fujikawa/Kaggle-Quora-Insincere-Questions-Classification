@@ -2,7 +2,10 @@ import numpy as np
 import torch
 from torch import nn
 
+from qiqc.registry import register_aggregator
 
+
+@register_aggregator('max')
 class MaxPoolingAggregator(nn.Module):
 
     def __call__(self, hs, mask):
@@ -12,6 +15,7 @@ class MaxPoolingAggregator(nn.Module):
         return h
 
 
+@register_aggregator('sum')
 class SumPoolingAggregator(nn.Module):
 
     def __call__(self, hs, mask):
@@ -21,6 +25,7 @@ class SumPoolingAggregator(nn.Module):
         return h
 
 
+@register_aggregator('avg')
 class AvgPoolingAggregator(nn.Module):
 
     def __call__(self, hs, mask):

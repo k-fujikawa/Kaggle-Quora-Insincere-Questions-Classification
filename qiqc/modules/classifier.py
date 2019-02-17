@@ -1,24 +1,18 @@
 import torch
 from torch import nn
 
-from qiqc.models.fc.mlp import MLP
-
 
 class BinaryClassifier(nn.Module):
 
-    def __init__(self, config, encoder, lossfunc):
+    default_config = None
+
+    def __init__(self, embedding, encoder, aggregator, mlp, out, lossfunc):
         super().__init__()
+        self.embedding = embedding
         self.encoder = encoder
-        self.mlp = MLP(
-            in_size=encoder.out_size,
-            n_hiddens=config['mlp']['n_hiddens'],
-            actfun=nn.ReLU(True),
-            bn0=config['mlp']['bn0'],
-            bn=config['mlp']['bn'],
-            dropout0=config['mlp']['dropout0'],
-            dropout=config['mlp']['dropout'],
-        )
-        self.out = nn.Linear(config['mlp']['n_hiddens'][-1], 1)
+        self.aggregator = aggregator
+        self.mlp = mlp
+        self.out = out
         self.lossfunc = lossfunc
 
     def calc_loss(self, X, X2, t, W=None):
@@ -51,6 +45,9 @@ class BinaryClassifier(nn.Module):
         maxlen = (mask == 1).any(dim=0).sum()
         X = X[:, :maxlen]
         mask = mask[:, :maxlen]
-        h = self.encoder(X, X2, mask)
-        h = self.mlp(h)
+
+        h = self.embedding(X)
+        h = self.encoder(h, mask)
+        h = self.aggregator(h, mask)
+        h = self.mlp(h, X2)
         return h
