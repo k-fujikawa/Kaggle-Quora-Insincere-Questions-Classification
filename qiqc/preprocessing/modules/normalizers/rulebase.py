@@ -1,5 +1,10 @@
-from _qiqc.preprocessors.normalizer import StringReplacer
-from _qiqc.preprocessors.normalizer import RegExpReplacer
+from unidecode import unidecode
+
+from qiqc.registry import register_preprocessor
+from _qiqc.preprocessing.normalizers.rulebase import StringReplacer
+from _qiqc.preprocessing.normalizers.rulebase import RegExpReplacer
+from _qiqc.preprocessing.normalizers.rulebase import unidecode_weak
+from _qiqc.preprocessing.normalizers.rulebase import cylower
 
 
 class PunctSpacer(StringReplacer):
@@ -202,3 +207,14 @@ class MisspellReplacer(StringReplacer):
             "demonetisation": "demonetization",
         }
         super().__init__(rule)
+
+
+register_preprocessor('lower')(cylower)
+register_preprocessor('punct')(PunctSpacer())
+register_preprocessor('unidecode')(unidecode)
+register_preprocessor('unidecode_weak')(unidecode_weak)
+register_preprocessor('number')(NumberReplacer())
+register_preprocessor('number+underscore')(
+    NumberReplacer(with_underscore=True))
+register_preprocessor('misspell')(MisspellReplacer())
+register_preprocessor('keras')(KerasFilterReplacer())

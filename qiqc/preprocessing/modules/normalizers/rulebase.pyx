@@ -3,7 +3,6 @@ import re
 
 import numpy as np
 cimport numpy as np
-from multiprocessing import Pool
 
 
 cdef class StringReplacer:
@@ -64,10 +63,6 @@ cdef class RegExpReplacer:
 
 cpdef str cylower(str x):
     return x.lower()
-
-
-cpdef list cysplit(str x):
-    return x.split()
 
 
 Cache = {}
