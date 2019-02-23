@@ -1,8 +1,8 @@
 # Quora Insincere Questions Classification
 
-[![CircleCI](https://circleci.com/gh/k-fujikawa/qiqc.svg?style=svg&circle-token=5016f93e46d89ad825834ac2478f1cce8b4f407b)](https://circleci.com/gh/k-fujikawa/qiqc)
+[![CircleCI](https://circleci.com/gh/k-fujikawa/Kaggle-Quora-Insincere-Questions-Classification.svg?style=shield&circle-token=5016f93e46d89ad825834ac2478f1cce8b4f407b)](https://circleci.com/gh/k-fujikawa/Kaggle-Quora-Insincere-Questions-Classification)
 
-This is a repository for kaggle competition: [Quora Insincere Questions Classification](https://www.kaggle.com/c/quora-insincere-questions-classification)
+4th Place Solution for [Quora Insincere Questions Classification](https://www.kaggle.com/c/quora-insincere-questions-classification)
 
 ## Requirement
 
@@ -32,8 +32,39 @@ docker-compose run cpu kaggle competitions download quora-insincere-questions-cl
 unzip "input/*.zip" -d input
 ```
 
-### :rocket: Execute experiments
+### :rocket: Train model
+
+#### Train with GPU
 
 ```
-docker-compose run gpu python exec/train-cv.py -m <path-to-models>
+docker-compose run gpu python exec/train.py -m python exec/train.py -m models/submit/submit1_embed_smpl_400.py -g <GPU_ID>
+```
+
+#### Train with CPU
+
+```
+docker-compose run cpu python exec/train.py -m python exec/train.py -m models/submit/submit1_embed_smpl_400.py
+```
+
+## Contribution
+
+Below command will run both `flake8` and `pytest`:
+```
+$ docker-compose run test
+```
+
+### Coding Guidelines
+
+We use [PEP8](https://pep8-ja.readthedocs.io/ja/latest/) syntax conventions, so please check your python changes:
+
+```
+$ docker-compose run cpu flake8
+```
+
+### Testing
+
+Before sending your PR, please make sure all tests are passing:
+
+```
+$ docker-compose run cpu nosetests
 ```
