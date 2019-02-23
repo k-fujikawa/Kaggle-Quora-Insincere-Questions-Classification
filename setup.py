@@ -15,10 +15,10 @@ reqs = pip._internal.req.parse_requirements(
 )
 install_requires = [str(req.req) for req in reqs]
 ext_modules = [
-    Extension('_qiqc.preprocessing.normalizers.rulebase',
-              sources=['qiqc/preprocessing/normalizers/rulebase.pyx']),
-    Extension('_qiqc.preprocessing.tokenizers.word',
-              sources=['qiqc/preprocessing/tokenizers/word.pyx']),
+    Extension('_qiqc.preprocessing.modules.normalizers.rulebase',
+              sources=['qiqc/preprocessing/modules/normalizers/rulebase.pyx']),
+    Extension('_qiqc.preprocessing.modules.tokenizers.word',
+              sources=['qiqc/preprocessing/modules/tokenizers/word.pyx']),
     Extension('_qiqc.utils',
               sources=['qiqc/utils.pyx']),
 ]
