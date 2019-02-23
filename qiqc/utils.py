@@ -18,6 +18,7 @@ def load_module(filename):
     spec = importlib.util.spec_from_file_location(name, filename)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
+    sys.modules[mod.__name__] = mod
     return mod
 
 

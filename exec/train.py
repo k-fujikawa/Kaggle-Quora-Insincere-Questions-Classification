@@ -1,5 +1,4 @@
 import argparse
-import sys
 import time
 from copy import deepcopy
 from pathlib import Path
@@ -20,20 +19,13 @@ from qiqc.utils import set_seed, load_module
 
 def main(args=None):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--modeldir', '-m', type=Path, required=True)
-    parser.add_argument('--gridsearch', action='store_true')
+    parser.add_argument('--modelfile', '-m', type=Path, required=True)
     _args, others = parser.parse_known_args(args)
 
-    modules = load_module(_args.modeldir / 'config.py')
-    sys.modules[modules.__name__] = modules
+    modules = load_module(_args.modelfile)
     config = modules.ExperimentConfigBuilder().build(args=args)
     qiqc.utils.rmtree_after_confirmation(config.outdir, config.test)
-
-    if _args.gridsearch:
-        qiqc.model_selection.train_gridsearch(
-            train, (config, modules))
-    else:
-        train(config, modules)
+    train(config, modules)
 
 
 def train(config, modules):
@@ -42,6 +34,7 @@ def train(config, modules):
     set_seed(config.seed)
     config.outdir.mkdir(parents=True, exist_ok=True)
 
+    build_model = modules.build_model
     Preprocessor = modules.Preprocessor
     TextNormalizer = modules.TextNormalizer
     TextTokenizer = modules.TextTokenizer
@@ -67,13 +60,13 @@ def train(config, modules):
     print('Build token ids...')
     train_dataset.tids, test_dataset.tids, submit_dataset.tids = \
         preprocessor.build_tokenids(datasets, vocab, config)
-    [d.build(config.device) for d in datasets]
 
     print('Build sentence extra features...')
     sentence_extra_featurizer = SentenceExtraFeaturizer(config)
     train_dataset._X2, test_dataset._X2, submit_dataset._X2 = \
         preprocessor.build_sentence_features(
             datasets, sentence_extra_featurizer)
+    [d.build(config.device) for d in datasets]
 
     print('Load pretrained vectors...')
     pretrained_vectors = load_pretrained_vectors(
@@ -95,8 +88,8 @@ def train(config, modules):
         for i in range(config.cv)]
 
     models = [
-        modules.build_model(
-            config, word_features
+        build_model(
+            config, word_features, sentence_extra_featurizer.n_dims
         ) for word_features in word_features_cv]
 
     print('Start training...')
