@@ -8,11 +8,12 @@ class ExperimentConfigBuilderBase(metaclass=ABCMeta):
     default_config = None
 
     def add_args(self, parser):
-        parser.add_argument('--modeldir', '-m', type=Path, required=True)
+        parser.add_argument('--modelfile', '-m', type=Path)
+        parser.add_argument('--outdir-top', type=Path, default=Path('results'))
+        parser.add_argument('--outdir-bottom', type=str, default='default')
         parser.add_argument('--device', '-g', type=int)
         parser.add_argument('--test', action='store_true')
         parser.add_argument('--logging', action='store_true')
-        parser.add_argument('--outdir', '-o', type=str, default='test')
         parser.add_argument('--n-rows', type=int)
 
         parser.add_argument('--seed', type=int, default=1029)
@@ -39,9 +40,6 @@ class ExperimentConfigBuilderBase(metaclass=ABCMeta):
     def modules(self):
         raise NotImplementedError()
 
-    def build_outdir(self, modeldir):
-        return Path('results') / '/'.join(modeldir.parts[1:])
-
     def build(self, args=None):
         assert self.default_config is not None
         parser = argparse.ArgumentParser()
@@ -55,14 +53,22 @@ class ExperimentConfigBuilderBase(metaclass=ABCMeta):
         for module in self.modules:
             if hasattr(module, 'add_extra_args'):
                 module.add_extra_args(parser, config)
-        config = parser.parse_args(args)
 
-        config.outdir = self.build_outdir(config.modeldir)
         if config.test:
-            config.n_rows = 500
-            config.batchsize = 64
-            config.epochs = 3
-            config.cv_part = 2
-            config.ensembler_test_size = 1.
+            parser.set_defaults(**dict(
+                n_rows=500,
+                batchsize=64,
+                validate_from=0,
+                epochs=3,
+                cv_part=2,
+                ensembler_test_size=1.,
+            ))
+
+        config = parser.parse_args(args)
+        if config.modelfile is not None:
+            config.outdir = config.outdir_top / config.modelfile.stem \
+                / config.outdir_bottom
+        else:
+            config.outdir = Path('.')
 
         return config
