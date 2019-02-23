@@ -13,9 +13,13 @@ class EmbeddingWrapper(NNModuleWrapperBase):
         self.config = config
         self.module = nn.Embedding.from_pretrained(
             torch.Tensor(embedding_matrix), freeze=True)
-        self.dropout1d = nn.Dropout(config.embedding_dropout1d)
-        self.dropout2d = nn.Dropout2d(config.embedding_dropout2d)
-        self.spatial_dropout = nn.Dropout2d(config.embedding_spatial_dropout)
+        if self.config.embedding_dropout1d > 0:
+            self.dropout1d = nn.Dropout(config.embedding_dropout1d)
+        if self.config.embedding_dropout2d > 0:
+            self.dropout2d = nn.Dropout2d(config.embedding_dropout2d)
+        if self.config.embedding_spatial_dropout > 0:
+            self.spatial_dropout = nn.Dropout2d(
+                config.embedding_spatial_dropout)
         self.out_size = embedding_matrix.shape[1]
 
     @classmethod
@@ -33,9 +37,11 @@ class EmbeddingWrapper(NNModuleWrapperBase):
 
     def forward(self, X):
         h = self.module(X)
-        h = self.dropout1d(h)
-        h = self.dropout2d(h)
-        if self.spatial_dropout.p > 0:
+        if self.config.embedding_dropout1d > 0:
+            h = self.dropout1d(h)
+        if self.config.embedding_dropout2d > 0:
+            h = self.dropout2d(h)
+        if self.config.embedding_spatial_dropout > 0:
             h = h.permute(0, 2, 1)
             h = self.spatial_dropout(h)
             h = h.permute(0, 2, 1)
