@@ -4,6 +4,10 @@
 
 4th Place Solution for [Quora Insincere Questions Classification](https://www.kaggle.com/c/quora-insincere-questions-classification)
 
+Solution overview is as below:
+
+![overview](overview.png)
+
 ## Requirement
 
 - docker >= 17.12.0
