@@ -3,6 +3,7 @@ pyyaml
 kaggle
 prompter
 joblib
+parameterized
 
 # ML packages
 pandas

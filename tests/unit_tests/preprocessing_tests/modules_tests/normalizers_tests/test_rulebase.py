@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-import qiqc.preprocessors as QP
+import qiqc.preprocessing.modules as QP
 
 
 class TestPunctSpacer(TestCase):
@@ -18,6 +18,11 @@ class TestNumberReplacer(TestCase):
         replacer = QP.NumberReplacer()
         old = 'in 1990s(90s)'
         new = 'in ####s(##s)'
+        self.assertEqual(new, replacer(old))
+
+        replacer = QP.NumberReplacer(with_underscore=True)
+        old = 'in 1990s(90s)'
+        new = 'in  __####__ s( __##__ s)'
         self.assertEqual(new, replacer(old))
 
 
