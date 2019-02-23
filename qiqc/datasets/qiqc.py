@@ -19,7 +19,7 @@ def load_qiqc(n_rows=None):
     return train_df, submit_df
 
 
-def build_datasets(train_df, submit_df, holdout, seed):
+def build_datasets(train_df, submit_df, holdout=False, seed=0):
     submit_dataset = QIQCDataset(submit_df)
     if holdout:
         # Train : Test split for holdout training
