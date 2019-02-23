@@ -67,6 +67,9 @@ class Word2VecFeaturizer(Any2VecFeaturizer):
         parser.add_argument('--finetune-word2vec-workers', type=int)
         parser.add_argument('--finetune-word2vec-iter', type=int)
         parser.add_argument('--finetune-word2vec-size', type=int)
+        parser.add_argument('--finetune-word2vec-window', type=int, default=5)
+        parser.add_argument('--finetune-word2vec-sorted-vocab', type=int,
+                            default=0)
         parser.add_argument('--finetune-word2vec-sg', type=int, choices=[0, 1])
 
     def build_model(self):
@@ -75,6 +78,7 @@ class Word2VecFeaturizer(Any2VecFeaturizer):
             workers=self.config.finetune_word2vec_workers,
             iter=self.config.finetune_word2vec_iter,
             size=self.config.finetune_word2vec_size,
+            window=self.config.finetune_word2vec_window,
             sg=self.config.finetune_word2vec_sg,
         )
         return model

@@ -11,10 +11,9 @@ class WordEmbeddingFeaturizerWrapper(object):
     default_config = None
     default_extra_config = None
 
-    def __init__(self, config, vocab, merge_mode='mean'):
+    def __init__(self, config, vocab):
         self.config = config
         self.vocab = vocab
-        self.merge_mode = merge_mode
         self.featurizers = {
             k: self.registry[k](config, vocab)
             for k in config.word_embedding_features}
@@ -40,16 +39,6 @@ class WordEmbeddingFeaturizerWrapper(object):
         return {k: feat(features, datasets)
                 for k, feat in self.featurizers.items()}
 
-    def perturb_embedding(self, embedding_matrix):
-        noise_mean = self.initialW[self.vocab.known].mean()
-        noise_std = self.initialW[self.vocab.known].mean()
-        if self.config.unk_lfq_embedding_purturbation == 'noise':
-            indices = self.vocab.unk & self.vocab.hfq
-            noise = np.random.normal(
-                noise_mean, noise_std, (indices.sum(), 300)) / self.n_any2vec
-            embedding_matrix[indices] += noise
-        return embedding_matrix
-
 
 class WordExtraFeaturizerWrapper(object):
 
@@ -69,8 +58,9 @@ class WordExtraFeaturizerWrapper(object):
         parser.set_defaults(**cls.default_config)
 
     def __call__(self, vocab):
-        return np.concatenate([
-            f(vocab) for f in self.featurizers.values()], axis=1)
+        empty = np.empty([len(vocab), 0])
+        return np.concatenate([empty, *[
+            f(vocab) for f in self.featurizers.values()]], axis=1)
 
 
 class SentenceExtraFeaturizerWrapper(object):
@@ -91,8 +81,9 @@ class SentenceExtraFeaturizerWrapper(object):
         parser.set_defaults(**cls.default_config)
 
     def __call__(self, sentence):
-        return np.concatenate([
-            f(sentence) for f in self.featurizers.values()], axis=0)
+        empty = np.empty((0,))
+        return np.concatenate([empty, *[
+            f(sentence) for f in self.featurizers.values()]], axis=0)
 
     def fit_standardize(self, features):
         assert features.ndim == 2
