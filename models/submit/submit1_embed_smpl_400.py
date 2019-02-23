@@ -25,7 +25,7 @@ class ExperimentConfigBuilder(ExperimentConfigBuilderBase):
         device=None,
         maxlen=72,
         vocab_mincount=5,
-        scale_batchsize=[4],
+        scale_batchsize=[],
         validate_from=4,
     )
 
