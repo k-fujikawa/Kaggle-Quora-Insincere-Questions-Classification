@@ -12,3 +12,19 @@ jobs:
       - run:
           name: Run application test
           command: docker-compose run test
+
+workflows:
+  version: 2
+  commit-workflow:
+    jobs:
+      - build
+  scheduled-workflow:
+    triggers:
+      - schedule:
+          cron: "0 0 * * *" # UTC (am 9:00 JST every day)
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - build
