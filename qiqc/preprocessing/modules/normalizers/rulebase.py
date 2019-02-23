@@ -1,10 +1,10 @@
 from unidecode import unidecode
 
 from qiqc.registry import register_preprocessor
-from _qiqc.preprocessing.normalizers.rulebase import StringReplacer
-from _qiqc.preprocessing.normalizers.rulebase import RegExpReplacer
-from _qiqc.preprocessing.normalizers.rulebase import unidecode_weak
-from _qiqc.preprocessing.normalizers.rulebase import cylower
+from _qiqc.preprocessing.modules.normalizers.rulebase import StringReplacer
+from _qiqc.preprocessing.modules.normalizers.rulebase import RegExpReplacer
+from _qiqc.preprocessing.modules.normalizers.rulebase import unidecode_weak
+from _qiqc.preprocessing.modules.normalizers.rulebase import cylower
 
 
 class PunctSpacer(StringReplacer):
