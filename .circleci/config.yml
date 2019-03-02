@@ -21,7 +21,7 @@ workflows:
   scheduled-workflow:
     triggers:
       - schedule:
-          cron: "0 0 * * *" # UTC (am 9:00 JST every day)
+          cron: "0 0 * * 6" # UTC (am 9:00 JST every Saturday)
           filters:
             branches:
               only:
