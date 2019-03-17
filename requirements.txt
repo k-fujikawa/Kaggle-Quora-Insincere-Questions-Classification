@@ -1,25 +1,22 @@
 # General packages
-pyyaml
-kaggle
-prompter
-joblib
-parameterized
+kaggle==1.5.3
+prompter==0.3.10
+joblib==0.13.2
+parameterized==0.7.0
 
 # ML packages
-pandas
-scikit-learn
-tensorboardX
-optuna
-lightgbm
+pandas==0.23.4
+scikit-learn==0.20.2
 
 # Jupyter packages
-jupyterlab
-seaborn
-tqdm
-ipywidgets
+jupyterlab==0.35.4
+seaborn==0.9.0
+tqdm==4.31.1
+ipywidgets==7.4.2
 
 # NLP modules
-nltk
-gensim
-spacy
-sentencepiece
+nltk==3.4
+gensim==3.7.1
+spacy==2.0.18
+sentencepiece==0.1.8
+unidecode==1.0.23
